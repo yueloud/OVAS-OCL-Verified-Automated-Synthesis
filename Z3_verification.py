@@ -227,9 +227,11 @@ class OCLZ3Translator:
 
             # 缺陷 3 修复：Sort Mismatch 检查
             if src_expr.sort() != func.domain(0):
-                dummy = self.me._default_value_for_sort(func.range())
-                return dummy, src_safety + [BoolVal(False)]
-
+                raise ValueError(
+                    f"Z3 Sort Mismatch: Cannot apply {func_key} (domain: {func.domain(0)}) "
+                    f"to source expression of sort {src_expr.sort()}. "
+                    f"This indicates a critical type inference bug in the translator or semantic firewall."
+                )
             if meta["is_count"]:
                 valid_instances = self.me.get_valid_instances(meta["tgt_class"])
                 return CollectionRef(
@@ -250,8 +252,11 @@ class OCLZ3Translator:
 
             # 缺陷 3 修复：Sort Mismatch 检查
             if src_expr.sort() != func.domain(0):
-                dummy = self.me._default_value_for_sort(func.range())
-                return dummy, src_safety + [BoolVal(False)]
+                raise ValueError(
+                    f"Z3 Sort Mismatch: Cannot apply {func_key} (domain: {func.domain(0)}) "
+                    f"to source expression of sort {src_expr.sort()}. "
+                    f"This indicates a critical type inference bug in the translator or semantic firewall."
+                )
 
             return func(src_expr), src_safety
 
@@ -334,8 +339,10 @@ class OCLZ3Translator:
         right, right_safety = self.translate(ast.right, var_bindings)
         op = ast.operator
 
-        # 铁律 7: 除法的严格评估范式
+        # 铁律 7: 除法的严格评估范式与 OCL Real 提升强制约
         if op == '/':
+            if is_int(left): left = ToReal(left)
+            if is_int(right): right = ToReal(right)
             return left / right, left_safety + right_safety + [right != 0]
 
         if op in ['+', '-', '*']:
@@ -357,7 +364,6 @@ class OCLZ3Translator:
             constraint = self._apply_relational(op, left, right)
             return constraint, left_safety + right_safety
 
-        # === 终极修复：逻辑算子的 OCL 短路传播 (Modulated Safety Propagation) ===
         def combine_s(s_list):
             return And(*s_list) if s_list else BoolVal(True)
 
@@ -365,21 +371,18 @@ class OCLZ3Translator:
         s_r = combine_s(right_safety)
 
         if op == 'and':
-            # OCL: false and invalid = false
-            return And(left, right), [And(s_l, Implies(left, s_r))]
-
+            # 对称化修复：如果一侧为 False，则无视另一侧的 Invalid；仅当两侧均不为 False 且有一侧 Invalid 时，整体 Invalid
+            is_safe = Or(And(s_l, Not(left)), And(s_r, Not(right)), And(s_l, s_r))
+            return And(left, right), [is_safe]
         if op == 'or':
-            # OCL: true or invalid = true
-            return Or(left, right), [And(s_l, Implies(Not(left), s_r))]
-
+            # 对称化修复：如果一侧为 True，则无视另一侧的 Invalid
+            is_safe = Or(And(s_l, left), And(s_r, right), And(s_l, s_r))
+            return Or(left, right), [is_safe]
         if op == 'implies':
-            # OCL: false implies invalid = true
+            # implies 保持非对称，符合 OCL 语义 (false implies invalid = true)
             return Implies(left, right), [And(s_l, Implies(left, s_r))]
-
         if op == 'xor':
-            # xor 两端必须全评估
             return Xor(left, right), left_safety + right_safety
-
         raise NotImplementedError(f"Binary operator not implemented: {op}")
 
     # ---------- UnaryExpression ----------
@@ -454,181 +457,265 @@ class OCLZ3Translator:
             return self._handle_multi_var_iterator(
                 ast, coll_ref, iter_vars, element_class, var_bindings, coll_safety)
 
-    def _handle_single_var_iterator(self, ast, coll_ref, iter_var_name,
-                                    element_class, var_bindings, coll_safety):
-        """单变量迭代器的处理"""
-        if ast.iterator_type in ["forAll", "exists", "one"]:
+    def _handle_single_var_iterator(self, ast, coll_ref, iter_var_name, element_class, var_bindings, coll_safety):
+        """单变量迭代器的处理（含安全条件冒泡修复）"""
+
+        accumulated_body_safety = []
+
+        # ========== forAll / exists：布尔逻辑 ==========
+        if ast.iterator_type in ["forAll", "exists"]:
             results = []
             for inst in coll_ref.valid_instances:
-                new_bindings = var_bindings.copy()
-                new_bindings[iter_var_name] = inst
-                new_bindings[iter_var_name + "_type"] = element_class
-
-                body_expr, body_safety = self.translate(ast.body, new_bindings)
-                body_val = And(And(*body_safety), body_expr) if body_safety else body_expr
+                body_val, body_safety_ref = self._eval_body_with_var(
+                    ast.body, iter_var_name, inst, element_class, var_bindings)
+                accumulated_body_safety.append(body_safety_ref)
 
                 in_set = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
-
                 if ast.iterator_type == "forAll":
                     results.append(Implies(in_set, body_val))
                 elif ast.iterator_type == "exists":
                     results.append(And(in_set, body_val))
-                elif ast.iterator_type == "one":
-                    results.append(And(in_set, body_val))
 
+            final_safety = coll_safety + accumulated_body_safety
             if ast.iterator_type == "forAll":
-                return And(*results), coll_safety
+                return And(*results), final_safety
             elif ast.iterator_type == "exists":
-                return Or(*results), coll_safety
-            elif ast.iterator_type == "one":
-                return And(AtMost(*results, 1), AtLeast(*results, 1)), coll_safety
+                return Or(*results), final_safety
 
+        # ========== one：代数求和逻辑（Bag 语义修正） ==========
+        elif ast.iterator_type == "one":
+            cnt_terms = []
+            for inst in coll_ref.valid_instances:
+                cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
+                body_val, body_safety_ref = self._eval_body_with_var(
+                    ast.body, iter_var_name, inst, element_class, var_bindings)
+                accumulated_body_safety.append(body_safety_ref)
+                # 满足条件的实例，累加其实际数量；否则累加 0
+                cnt_terms.append(If(And(cnt > 0, body_val), cnt, IntVal(0)))
+
+            total_matches = Sum(*cnt_terms) if cnt_terms else IntVal(0)
+            final_safety = coll_safety + accumulated_body_safety
+            return total_matches == 1, final_safety
+
+        # ========== isUnique ==========
         elif ast.iterator_type == "isUnique":
-            return self._handle_is_unique_single(ast, coll_ref, iter_var_name,
-                                                 element_class, var_bindings, coll_safety)
+            return self._handle_is_unique_single(
+                ast, coll_ref, iter_var_name, element_class, var_bindings, coll_safety)
 
+        # ========== select / reject ==========
         elif ast.iterator_type in ["select", "reject"]:
+            body_vals = {}
+            for inst in coll_ref.valid_instances:
+                body_val, body_safety_ref = self._eval_body_with_var(
+                    ast.body, iter_var_name, inst, element_class, var_bindings)
+                accumulated_body_safety.append(body_safety_ref)
+                body_vals[inst] = body_val
+
             def filtered_cnt(root, inst):
                 base_cnt = coll_ref.cnt_func(coll_ref.root_inst if root is None else root, inst)
-                body_val = self._eval_body_with_var(
-                    ast.body, iter_var_name, inst, element_class, var_bindings)
+                b_val = body_vals.get(inst, BoolVal(False))
                 if ast.iterator_type == "select":
-                    return If(And(base_cnt > 0, body_val), base_cnt, IntVal(0))
+                    return If(And(base_cnt > 0, b_val), base_cnt, IntVal(0))
                 else:
-                    return If(And(base_cnt > 0, Not(body_val)), base_cnt, IntVal(0))
+                    return If(And(base_cnt > 0, Not(b_val)), base_cnt, IntVal(0))
 
+            final_safety = coll_safety + accumulated_body_safety
             return CollectionRef(
-                root_inst=coll_ref.root_inst, cnt_func=filtered_cnt,
-                element_class=element_class, valid_instances=coll_ref.valid_instances,
-                attr_func=coll_ref.attr_func, nav_chain=coll_ref.nav_chain), coll_safety
+                root_inst=coll_ref.root_inst,
+                cnt_func=filtered_cnt,
+                element_class=element_class,
+                valid_instances=coll_ref.valid_instances,
+                attr_func=coll_ref.attr_func,
+                nav_chain=coll_ref.nav_chain), final_safety
 
+        # ========== collect ==========
         elif ast.iterator_type == "collect":
-            return CollectionRef(
-                root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func,
-                element_class=element_class, valid_instances=coll_ref.valid_instances,
-                attr_func=("collect_body", ast.body, iter_var_name, element_class, var_bindings),
-                nav_chain=coll_ref.nav_chain), coll_safety
+            for inst in coll_ref.valid_instances:
+                _, body_safety_ref = self._eval_body_with_var(
+                    ast.body, iter_var_name, inst, element_class, var_bindings)
+                accumulated_body_safety.append(body_safety_ref)
 
+            final_safety = coll_safety + accumulated_body_safety
+            return CollectionRef(
+                root_inst=coll_ref.root_inst,
+                cnt_func=coll_ref.cnt_func,
+                element_class=element_class,
+                valid_instances=coll_ref.valid_instances,
+                attr_func=("collect_body", ast.body, iter_var_name, element_class, var_bindings),
+                nav_chain=coll_ref.nav_chain), final_safety
+
+        # ========== any ==========
         elif ast.iterator_type == "any":
-            # OCL 的 any() 返回的是满足条件的元素实体，而非 Boolean
             null_const = self.me.null_consts.get(element_class)
             res_expr = null_const if null_const is not None else self.me._default_value_for_sort(
                 self.me._z3_sort(element_class))
 
-            # 使用 reversed 逆向折叠，确保最外层的 If 匹配到最先出现的合法实例
-            for inst in reversed(coll_ref.valid_instances):
-                body_val = self._eval_body_with_var(
+            body_vals = {}
+            for inst in coll_ref.valid_instances:
+                body_val, body_safety_ref = self._eval_body_with_var(
                     ast.body, iter_var_name, inst, element_class, var_bindings)
+                accumulated_body_safety.append(body_safety_ref)
+                body_vals[inst] = body_val
+
+            for inst in reversed(coll_ref.valid_instances):
+                b_val = body_vals[inst]
                 in_set = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
+                res_expr = If(And(in_set, b_val), inst, res_expr)
 
-                # 如果元素在集合中且满足 predicate，则选定该实例，否则继续向后备选项求值
-                res_expr = If(And(in_set, body_val), inst, res_expr)
-
-            return res_expr, coll_safety
+            final_safety = coll_safety + accumulated_body_safety
+            return res_expr, final_safety
 
         raise NotImplementedError(f"Iterator not implemented: {ast.iterator_type}")
 
-    def _handle_multi_var_iterator(self, ast, coll_ref, iter_vars,
-                                   element_class, var_bindings, coll_safety):
-        """缺陷 1 修复：多重迭代变量的笛卡尔积展开"""
+    def _handle_multi_var_iterator(self, ast, coll_ref, iter_vars, element_class, var_bindings, coll_safety):
+        """多重迭代变量的笛卡尔积展开（含安全条件冒泡修复）"""
         iter_type = ast.iterator_type
         n_vars = len(iter_vars)
 
-        results = []
-        for inst_tuple in itertools.product(coll_ref.valid_instances, repeat=n_vars):
-            new_bindings = var_bindings.copy()
-            in_set_conditions = []
+        # 核心修复：统一收集闭包体在各个实例组合上求值时的安全条件
+        accumulated_body_safety = []
 
-            for var_name, inst in zip(iter_vars, inst_tuple):
-                new_bindings[var_name] = inst
-                new_bindings[var_name + "_type"] = element_class
-                in_set_conditions.append(coll_ref.cnt_func(coll_ref.root_inst, inst) > 0)
+        # ========== forAll / exists：布尔逻辑 ==========
+        if iter_type in ["forAll", "exists"]:
+            results = []
+            for inst_tuple in itertools.product(coll_ref.valid_instances, repeat=n_vars):
+                in_set_conditions = []
+                for var_name, inst in zip(iter_vars, inst_tuple):
+                    in_set_conditions.append(coll_ref.cnt_func(coll_ref.root_inst, inst) > 0)
 
-            in_set = And(*in_set_conditions) if len(in_set_conditions) > 1 else in_set_conditions[0]
+                in_set = And(*in_set_conditions) if len(in_set_conditions) > 1 else in_set_conditions[0]
 
-            body_expr, body_safety = self.translate(ast.body, new_bindings)
-            body_val = And(And(*body_safety), body_expr) if body_safety else body_expr
+                body_val, body_safety_ref = self._eval_body_with_vars(
+                    ast.body, iter_vars, inst_tuple, element_class, var_bindings)
+
+                accumulated_body_safety.append(body_safety_ref)
+
+                if iter_type == "forAll":
+                    results.append(Implies(in_set, body_val))
+                elif iter_type == "exists":
+                    results.append(And(in_set, body_val))
+
+            final_safety = coll_safety + accumulated_body_safety
 
             if iter_type == "forAll":
-                results.append(Implies(in_set, body_val))
+                return And(*results), final_safety
             elif iter_type == "exists":
-                results.append(And(in_set, body_val))
-            elif iter_type == "one":
-                results.append(And(in_set, body_val))
-            elif iter_type == "isUnique":
-                results.append(Implies(in_set, body_val))
-            else:
-                results.append(Implies(in_set, body_val))
+                return Or(*results), final_safety
 
-        if iter_type == "forAll":
-            return And(*results), coll_safety
-        elif iter_type == "exists":
-            return Or(*results), coll_safety
+        # ========== one：代数求和逻辑（Bag 语义修正） ==========
         elif iter_type == "one":
-            return And(AtMost(*results, 1), AtLeast(*results, 1)), coll_safety
+            cnt_terms = []
+            for inst_tuple in itertools.product(coll_ref.valid_instances, repeat=n_vars):
+                in_set_conditions = []
+                tuple_cnt = IntVal(1)  # 计算当前组合在多重集中出现的总次数
+                for inst in inst_tuple:
+                    cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
+                    in_set_conditions.append(cnt > 0)
+                    tuple_cnt = tuple_cnt * cnt  # 乘积累积
+
+                # 组合存在的布尔条件
+                in_set = And(*in_set_conditions) if len(in_set_conditions) > 1 else in_set_conditions[0]
+
+                body_val, body_safety_ref = self._eval_body_with_vars(
+                    ast.body, iter_vars, inst_tuple, element_class, var_bindings)
+
+                accumulated_body_safety.append(body_safety_ref)
+
+                # 满足条件的组合，累加其实际出现次数；否则累加 0
+                cnt_terms.append(If(And(in_set, body_val), tuple_cnt, IntVal(0)))
+
+            total_matches = Sum(*cnt_terms) if cnt_terms else IntVal(0)
+            final_safety = coll_safety + accumulated_body_safety
+            return total_matches == 1, final_safety
+
+        # ========== isUnique ==========
         elif iter_type == "isUnique":
-            pair_constraints = []
+            # isUnique 需要预计算所有元组的 body_val 和 safety
             tuples = list(itertools.product(coll_ref.valid_instances, repeat=n_vars))
+            body_vals = {}
+            for t in tuples:
+                body_val, body_safety_ref = self._eval_body_with_vars(
+                    ast.body, iter_vars, t, element_class, var_bindings)
+                accumulated_body_safety.append(body_safety_ref)
+                body_vals[t] = body_val
+
+            pair_constraints = []
             for i, t1 in enumerate(tuples):
                 for j, t2 in enumerate(tuples):
                     if i < j:
                         not_same = Or(*[a != b for a, b in zip(t1, t2)])
-                        in1_conditions = [coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
-                                          for inst in t1]
-                        in2_conditions = [coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
-                                          for inst in t2]
-                        in1 = And(*in1_conditions)
-                        in2 = And(*in2_conditions)
+                        in1_conditions = [coll_ref.cnt_func(coll_ref.root_inst, inst) > 0 for inst in t1]
+                        in2_conditions = [coll_ref.cnt_func(coll_ref.root_inst, inst) > 0 for inst in t2]
+                        in1 = And(*in1_conditions) if len(in1_conditions) > 1 else in1_conditions[0]
+                        in2 = And(*in2_conditions) if len(in2_conditions) > 1 else in2_conditions[0]
 
-                        b1 = self._eval_body_with_vars(ast.body, iter_vars, t1,
-                                                       element_class, var_bindings)
-                        b2 = self._eval_body_with_vars(ast.body, iter_vars, t2,
-                                                       element_class, var_bindings)
-                        pair_constraints.append(
-                            Implies(And(in1, in2, not_same), b1 != b2))
-            return And(*pair_constraints), coll_safety
+                        b1 = body_vals[t1]
+                        b2 = body_vals[t2]
+                        pair_constraints.append(Implies(And(in1, in2, not_same), b1 != b2))
+
+            final_safety = coll_safety + accumulated_body_safety
+            return And(*pair_constraints), final_safety
 
         raise NotImplementedError(f"Multi-var iterator not implemented: {iter_type}")
 
-    def _handle_is_unique_single(self, ast, coll_ref, iter_var_name,
-                                 element_class, var_bindings, coll_safety):
-        """单变量 isUnique 处理"""
+    def _handle_is_unique_single(self, ast, coll_ref, iter_var_name, element_class, var_bindings, coll_safety):
+        """单变量 isUnique 处理（含安全条件冒泡修复）"""
         pair_constraints = []
+        accumulated_body_safety = []
         instances = coll_ref.valid_instances
+
+        # 预求值缓存
+        body_vals = {}
+        for inst in instances:
+            body_val, body_safety_ref = self._eval_body_with_var(
+                ast.body, iter_var_name, inst, element_class, var_bindings)
+            accumulated_body_safety.append(body_safety_ref)
+            body_vals[inst] = body_val
+
         for i, inst1 in enumerate(instances):
             for j, inst2 in enumerate(instances):
                 if i < j:
                     in1 = coll_ref.cnt_func(coll_ref.root_inst, inst1) > 0
                     in2 = coll_ref.cnt_func(coll_ref.root_inst, inst2) > 0
-                    b1 = self._eval_body_with_var(ast.body, iter_var_name,
-                                                  inst1, element_class, var_bindings)
-                    b2 = self._eval_body_with_var(ast.body, iter_var_name,
-                                                  inst2, element_class, var_bindings)
+                    b1 = body_vals[inst1]
+                    b2 = body_vals[inst2]
                     pair_constraints.append(
                         Implies(And(in1, in2, inst1 != inst2), b1 != b2))
-        return And(*pair_constraints), coll_safety
+
+        final_safety = coll_safety + accumulated_body_safety
+        return And(*pair_constraints), final_safety
 
     def _eval_body_with_var(self, body_ast, var_name, inst, element_class, var_bindings):
         new_bindings = var_bindings.copy()
         new_bindings[var_name] = inst
         new_bindings[var_name + "_type"] = element_class
         body_expr, body_safety = self.translate(body_ast, new_bindings)
-        if body_safety and is_bool(body_expr):
-            return And(And(*body_safety), body_expr)
-        return body_expr
+
+        # 关键修复：不再在此处合并 safety，而是原样返回，交由迭代器统一处理
+        combined_safety = And(*body_safety) if body_safety else BoolVal(True)
+        if is_bool(body_expr):
+            return And(combined_safety, body_expr), combined_safety
+        else:
+            return body_expr, combined_safety
 
     def _eval_body_with_vars(self, body_ast, var_names, inst_tuple, element_class, var_bindings):
         new_bindings = var_bindings.copy()
         for var_name, inst in zip(var_names, inst_tuple):
             new_bindings[var_name] = inst
             new_bindings[var_name + "_type"] = element_class
+
         body_expr, body_safety = self.translate(body_ast, new_bindings)
+
+        # 关键修复：不再在此处合并 safety，而是原样返回，交由迭代器统一处理
+        combined_safety = And(*body_safety) if body_safety else BoolVal(True)
+
         # 只有当 body 是布尔表达式时，才用 safety 条件做 And 守卫
         # 如果 body 是算术/对象表达式（如 collect 体中的 t.amount），
         # And(BoolRef, ArithRef) 会触发 Z3 类型坍塌
-        if body_safety and is_bool(body_expr):
-            return And(And(*body_safety), body_expr)
-        return body_expr
+        if is_bool(body_expr):
+            return And(combined_safety, body_expr), combined_safety
+        else:
+            return body_expr, combined_safety
 
     # ---------- CollectionOperation ----------
     def _handle_collection_op(self, ast: CollectionOperation, var_bindings: Dict) -> Tuple[Any, List]:
@@ -662,21 +749,32 @@ class OCLZ3Translator:
                 return non_membership, coll_safety + arg_safety
             raise ValueError("excludes operation requires an argument")
 
-        if op in ["asSet", "asBag", "asSequence", "asOrderedSet"]:
+        if op in ["asSet", "asBag"]:
             return coll_ref, coll_safety
+
+        if op in ["asSequence", "asOrderedSet", "at"]:
+            raise NotImplementedError(
+                f"Verification Capability Limit: '{op}' requires ordered collection semantics, "
+                f"which are not supported in the current unordered counting model fragment."
+            )
+
         if op == "flatten":
             return coll_ref, coll_safety
 
         if op in ["first", "last"]:
-            if not coll_ref.valid_instances:
-                raise ValueError("Cannot get first/last of empty collection")
-            return coll_ref.valid_instances[0], coll_safety
+            null_const = self.me.null_consts.get(coll_ref.element_class)
+            res_expr = null_const if null_const is not None else self.me._default_value_for_sort(
+                self.me._z3_sort(coll_ref.element_class))
 
-        if op == "at":
-            if ast.arguments:
-                idx_expr, idx_safety = self.translate(ast.arguments[0], var_bindings)
-                return coll_ref.valid_instances[0], coll_safety + idx_safety
-            raise ValueError("at operation requires an argument")
+            # 逆向折叠：如果是 first，从后往前覆盖；如果是 last，从前往后覆盖
+            instances = coll_ref.valid_instances
+            if op == "first":
+                instances = reversed(instances)
+
+            for inst in instances:
+                in_set = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
+                res_expr = If(in_set, inst, res_expr)
+            return res_expr, coll_safety
 
         if op == "count":
             if ast.arguments:
@@ -691,22 +789,35 @@ class OCLZ3Translator:
         if op == "includesAll":
             if ast.arguments:
                 arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
+                if not isinstance(arg_expr, CollectionRef):
+                    raise ValueError(
+                        "Semantic Error: includesAll requires a collection as argument, "
+                        f"but got a scalar value of type {arg_expr.sort()}."
+                    )
                 conds = []
                 for inst in arg_expr.valid_instances:
-                    in_arg = arg_expr.cnt_func(arg_expr.root_inst, inst) > 0
-                    in_coll = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
-                    conds.append(Implies(in_arg, in_coll))
+                    arg_cnt = arg_expr.cnt_func(arg_expr.root_inst, inst)
+                    coll_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
+                    conds.append(coll_cnt >= arg_cnt)
                 return And(*conds), coll_safety + arg_safety
+            raise ValueError("includesAll operation requires an argument")
 
         if op == "excludesAll":
             if ast.arguments:
                 arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
+                # 修复：防御性隔离，确保参数是集合而非标量
+                if not isinstance(arg_expr, CollectionRef):
+                    raise ValueError(
+                        "Semantic Error: excludesAll requires a collection as argument, "
+                        f"but got a scalar value of type {arg_expr.sort()}."
+                    )
                 conds = []
                 for inst in arg_expr.valid_instances:
                     in_arg = arg_expr.cnt_func(arg_expr.root_inst, inst) > 0
                     in_coll = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
                     conds.append(Not(And(in_arg, in_coll)))
                 return And(*conds), coll_safety + arg_safety
+            raise ValueError("excludesAll operation requires an argument")
 
             # 确保此行与所有 if op == ... 对齐，不在任何分支内部
         raise NotImplementedError(f"Collection operation not implemented: {op}")
@@ -724,13 +835,15 @@ class OCLZ3Translator:
 
         attr_func = coll_ref.attr_func
 
-        # 优先检查 collect_body tuple（tuple 不是 callable，必须先于 callable 检查）
         if isinstance(attr_func, tuple) and attr_func[0] == "collect_body":
             _, body_ast, var_name, elem_class, saved_bindings = attr_func
             terms = []
+            sum_safety_acc = []  # 收集 sum 内部的 safety
             for inst in coll_ref.valid_instances:
                 cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
-                body_val = self._eval_body_with_var(body_ast, var_name, inst, elem_class, saved_bindings)
+                body_val, body_safety_ref = self._eval_body_with_var(body_ast, var_name, inst, elem_class,
+                                                                     saved_bindings)
+                sum_safety_acc.append(body_safety_ref)  # 冒泡收集
                 if not (is_int(body_val) or is_real(body_val)):
                     raise ValueError(
                         "Z3 Compilation Error: ->sum() requires numeric values, but ->collect() "
@@ -740,7 +853,7 @@ class OCLZ3Translator:
                     terms.append(ToReal(cnt) * body_val)
                 else:
                     terms.append(cnt * body_val)
-            return Sum(*terms) if terms else IntVal(0), []
+            return Sum(*terms) if terms else IntVal(0), sum_safety_acc  # 返回收集的 safety
 
         # 然后再检查 callable（FuncDeclRef）
         if not callable(attr_func):
@@ -943,115 +1056,67 @@ class OCLZ3Translator:
 
 
 # ==========================================
-# 组件 3：预算化语义体积采样与拓扑去重
 # ==========================================
-class SemanticVolumeSampler:
-    def __init__(self, budget: int = 100):
-        self.budget = budget
-
-    def sample(self, gt_expr: Any, llm_expr: Any, meta_encoder: BoundedMetamodelEncoder,
-               context_class: str, self_var) -> Tuple[int, int]:
-        null_const = meta_encoder.null_consts[context_class]
-
-        gt_forall = ForAll([self_var], Implies(self_var != null_const, gt_expr))
-        llm_forall = ForAll([self_var], Implies(self_var != null_const, llm_expr))
-
-        # 1. 弱化偏差 x
-        solver_x = Solver()
-        solver_x.add(meta_encoder.axioms)
-        solver_x.add(Not(gt_forall))
-        solver_x.add(llm_forall)
-        x = self._enumerate_models(solver_x, meta_encoder)
-
-        # 2. 强化偏差 y
-        solver_y = Solver()
-        solver_y.add(meta_encoder.axioms)
-        solver_y.add(gt_forall)
-        solver_y.add(Not(llm_forall))
-        y = self._enumerate_models(solver_y, meta_encoder)
-
-        return x, y
-
-    def _enumerate_models(self, solver: Solver, meta_encoder: BoundedMetamodelEncoder) -> int:
-        count = 0
-        seen_hashes = set()
-
-        while solver.check() == sat and count < self.budget:
-            model = solver.model()
-            model_hash = self._topology_hash(model, meta_encoder)
-
-            if model_hash not in seen_hashes:
-                seen_hashes.add(model_hash)
-                count += 1
-
-            # 铁律 2: ALL-SAT 函数求值强制阻挡
-            block = []
-
-            for d in model.decls():
-                if d.arity() == 0:
-                    block.append(d() != model[d])
-
-            for key, func in meta_encoder.attr_funcs.items():
-                class_name = key.split('.')[0]
-                for inst in meta_encoder.get_valid_instances(class_name):
-                    val = model.evaluate(func(inst), model_completion=True)
-                    block.append(func(inst) != val)
-
-            for key, func in meta_encoder.assoc_funcs.items():
-                meta = meta_encoder.assoc_meta[key]
-                src_class = meta["src_class"]
-                tgt_class = meta["tgt_class"]
-                src_instances = meta_encoder.get_valid_instances(src_class)
-                tgt_instances = meta_encoder.get_valid_instances(tgt_class)
-
-                if meta["is_count"]:
-                    for src_inst in src_instances:
-                        for tgt_inst in tgt_instances:
-                            val = model.evaluate(func(src_inst, tgt_inst),
-                                                 model_completion=True)
-                            block.append(func(src_inst, tgt_inst) != val)
-                else:
-                    for src_inst in src_instances:
-                        val = model.evaluate(func(src_inst), model_completion=True)
-                        block.append(func(src_inst) != val)
-
-            if block:
-                solver.add(Or(*block))
-            else:
-                break
-
-        return count
-
-    def _topology_hash(self, model: ModelRef, meta_encoder: BoundedMetamodelEncoder) -> str:
-        sig_parts = []
-        for d in model.decls():
-            sig_parts.append(f"{d.name()}={model[d]}")
-        return hashlib.md5("&".join(sorted(sig_parts)).encode()).hexdigest()
-
-
+# 组件 3 & 4：基于蕴含关系的定性分级判定
 # ==========================================
-# 组件 4：非对称非线性平滑打分体系
-# ==========================================
-def calculate_score(x: int, y: int, M: int) -> float:
-    alpha, beta = 0.6, 0.4
-    p, q = 1, 2
-    score = 100 * max(0.0, 1.0 - alpha * (x / M) ** p - beta * (y / M) ** q)
-    return round(score, 2)
+
+def check_equivalence(gt_expr: Any, llm_expr: Any, meta_encoder: BoundedMetamodelEncoder,
+                      context_class: str, self_var) -> int:
+    """
+    基于 Z3 蕴含关系判定 GT 与 LLM 的逻辑等价性。
+    返回离散分数：100 (等价), 60 (强化), 40 (弱化), 0 (不可比)
+    """
+    null_const = meta_encoder.null_consts[context_class]
+    gt_forall = ForAll([self_var], Implies(self_var != null_const, gt_expr))
+    llm_forall = ForAll([self_var], Implies(self_var != null_const, llm_expr))
+
+    s = Solver()
+    s.add(meta_encoder.axioms)
+
+    # 判定 1: GT 是否蕴含 LLM (如果否，则 LLM 存在弱化/放宽，允许了 GT 不允许的状态)
+    s.push()
+    s.add(gt_forall)
+    s.add(Not(llm_forall))
+    is_weakened = (s.check() == sat)
+    s.pop()
+
+    # 判定 2: LLM 是否蕴含 GT (如果否，则 LLM 存在强化/收窄，排除了 GT 允许的状态)
+    s.push()
+    s.add(llm_forall)
+    s.add(Not(gt_forall))
+    is_strengthened = (s.check() == sat)
+    s.pop()
+
+    # 定性分级与离散映射
+    if not is_weakened and not is_strengthened:
+        return 100  # 逻辑等价 (EQUIVALENT)
+    elif not is_weakened and is_strengthened:
+        return 60  # 过度约束 (STRENGTHENED) - LLM 严于 GT
+    elif is_weakened and not is_strengthened:
+        return 40  # 约束不足 (WEAKENED) - LLM 宽于 GT
+    else:
+        return 0  # 逻辑交叉/偏移 (INCOMPARABLE)
 
 
 # ==========================================
 # 主控流水线
 # ==========================================
-def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
-                        uml_context: dict, context_class: str) -> float:
-    # 1. 编码元模型
+def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_context: dict, context_class: str) -> float:
+    # 1. 预检：防御性隔离，确保 LLM 的 AST 可翻译
+    is_translatable, err_msg = check_z3_translatable(llm_ast, uml_context, context_class)
+    if not is_translatable:
+        # 编译失败，逻辑必然不等价，直接返回 0 分
+        # 可选：将 err_msg 记录到日志中，用于后续分析 LLM 的编译级错误
+        return 0.0
+
+    # 2. 编码元模型
     meta_encoder = BoundedMetamodelEncoder(uml_context, scope=3)
 
-    # 2. 铁律 3: self 的 Z3 Const 显式绑定
+    # 3. self 的 Z3 Const 显式绑定
     self_var = Const("self", meta_encoder.sorts[context_class])
     var_bindings = {"context_class": context_class, "self": self_var}
 
-    # 3. 翻译 AST
+    # 4. 翻译 AST (经过预检，此处理论上是安全的)
     translator = OCLZ3Translator(meta_encoder)
     gt_expr, gt_safety = translator.translate(gt_ast, var_bindings)
     llm_expr, llm_safety = translator.translate(llm_ast, var_bindings)
@@ -1062,12 +1127,9 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
     if llm_safety:
         llm_expr = And(And(*llm_safety), llm_expr)
 
-    # 4. 语义体积采样
-    sampler = SemanticVolumeSampler(budget=100)
-    x, y = sampler.sample(gt_expr, llm_expr, meta_encoder, context_class, self_var)
+    # 5. 基于蕴含关系的定性分级判定
+    return check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var)
 
-    # 5. 打分
-    return calculate_score(x, y, M=100)
 
 def check_z3_translatable(llm_ast: OCLExpression, uml_context: dict, context_class: str) -> tuple:
     try:

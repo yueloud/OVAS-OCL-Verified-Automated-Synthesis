@@ -62,7 +62,8 @@ class CollectionOperation(OCLNode):
     """集合原生操作节点"""
     type: TypeLiteral["CollectionOperation"] = "CollectionOperation"
     source: "OCLExpression"
-    operation_type: TypeLiteral["size", "isEmpty", "notEmpty", "includes", "excludes", "includesAll", "excludesAll", "sum", "asSet", "at", "flatten", "first", "last"]
+    operation_type: TypeLiteral["size", "isEmpty", "notEmpty", "includes", "excludes", "includesAll", "excludesAll", "sum", "count",
+        "asSet", "asBag", "flatten", "first", "last"]
     arguments: List["OCLExpression"] = Field(default_factory=list)
 
 class IfExpression(OCLNode):

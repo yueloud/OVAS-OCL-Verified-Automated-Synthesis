@@ -172,11 +172,12 @@ class OCLSemanticChecker:
             _ = cls.check(expr.expression, env)
             return expr.target_type
 
+
         elif node_type == "PropertyCall":
+
             source_type = cls.check(expr.source, env)
             is_col = is_collection_type(source_type)
             base_type = extract_inner_type(source_type) if is_col else source_type
-
             clean_base = re.sub(r'\[.*?\]', '', base_type)
 
             if clean_base.startswith("Class("):
@@ -187,26 +188,19 @@ class OCLSemanticChecker:
             prop_type = env.registry.resolve_property(
                 env.uml_context, clean_base, expr.property_name
             )
-
-            # === 出口清洗：防止带后缀的"脏类型"污染上层 AST ===
-            # 比如 "Company[1..1]" -> "Company" (Set(Member) 不受影响)
             clean_prop_type = re.sub(r'\[.*?\]', '', prop_type)
 
             if is_col:
                 flat_type = (
-                    extract_inner_type(clean_prop_type)
-                    if is_collection_type(clean_prop_type)
-                    else clean_prop_type
-                )
-                # 修复 Sequence 保序性
-                if source_type.startswith("Sequence("):
-                    return f"Sequence({flat_type})"
-                elif source_type.startswith("OrderedSet("):
-                    return f"OrderedSet({flat_type})"
-                else:
-                    return f"Bag({flat_type})"
 
-            return clean_prop_type  # 返回清洗后的纯净类型
+                    extract_inner_type(clean_prop_type) if is_collection_type(clean_prop_type) else clean_prop_type
+
+                )
+                # 修改点：强制将 Sequence/OrderedSet 的隐式导航结果降级为 Bag
+                # 这与底层 Z3 的无序多重集编码对齐
+                return f"Bag({flat_type})"
+
+            return clean_prop_type
 
 
         elif node_type == "OperationCall":
@@ -346,8 +340,10 @@ class OCLSemanticChecker:
                 )
             return "Real" if "Real" in [then_type, else_type] else then_type
 
+
         elif node_type == "CollectionOperation":
             source_type = cls.check(expr.source, env)
+
             if not is_collection_type(source_type):
                 raise SemanticError(
                     f"算子违例: '{expr.operation_type}' 只能作用于集合类型，"
@@ -356,47 +352,47 @@ class OCLSemanticChecker:
 
             if expr.operation_type == "size":
                 return "Integer"
+
+            elif expr.operation_type == "count":
+                return "Integer"
+
             elif expr.operation_type == "sum":
                 inner = extract_inner_type(source_type)
+
                 if inner not in ["Integer", "Real"]:
                     raise SemanticError(
                         f"集合求和违例: sum() 只能用于数字集合，"
                         f"得到元素类型为 {inner}"
                     )
                 return "Real" if inner == "Real" else "Integer"
+
             elif expr.operation_type in [
-                "isEmpty", "notEmpty", "includes", "excludes",
-                "includesAll", "excludesAll"
+                "isEmpty", "notEmpty", "includes", "excludes", "includesAll", "excludesAll"
             ]:
                 return "Boolean"
+
             elif expr.operation_type == "asSet":
                 return f"Set({extract_inner_type(source_type)})"
+
+            elif expr.operation_type == "asBag":
+                return f"Bag({extract_inner_type(source_type)})"
+
             elif expr.operation_type == "flatten":
-                # 展平后统一转为 Bag
                 inner = extract_inner_type(source_type)
                 if is_collection_type(inner):
                     return f"Bag({extract_inner_type(inner)})"
-                return f"Bag({inner})"
-            elif expr.operation_type in ["first", "last"]:
-                return extract_inner_type(source_type)
 
-            elif expr.operation_type == "at":
-                # 1. 严谨性检查：at() 只能用于有序集合 (Sequence / OrderedSet)
-                if not source_type.startswith(("Sequence(", "OrderedSet(")):
+                return f"Bag({inner})"
+
+            elif expr.operation_type in ["first", "last"]:
+                # 修改点：拦截有序集合上的 first/last 调用
+
+                if source_type.startswith("Sequence(") or source_type.startswith("OrderedSet("):
                     raise SemanticError(
-                        f"算子违例: at() 只能用于有序集合 或 OrderedSet)，"
-                        f"得到 {source_type}"
+                        f"算子违例: '{expr.operation_type}' 在有序集合上要求保序语义，"
+                        f"但底层形式化验证核心子集不支持序列保序。请使用迭代器 (如 ->any, ->exists) 替代。"
                     )
-                # 2. 参数检查：必须提供且仅提供一个索引参数
-                if not expr.arguments or len(expr.arguments) != 1:
-                    raise SemanticError("at() 必须且只能接收一个参数作为索引")
-                # 3. 索引类型检查：必须是 Integer
-                idx_type = cls.check(expr.arguments[0], env)
-                if idx_type != "Integer":
-                    raise SemanticError(
-                        f"at() 的索引参数必须为 Integer，得到 {idx_type}"
-                    )
-                # 4. 返回值：集合内部元素的类型
+                # 对于 Set/Bag，等价于非确定性选择 ->any()，语义合法
                 return extract_inner_type(source_type)
 
             raise SemanticError(

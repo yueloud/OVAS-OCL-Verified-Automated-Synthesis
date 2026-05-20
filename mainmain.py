@@ -5,67 +5,48 @@ import time
 from pydantic import ValidationError
 from json_schema import OCLDocument, OCLConstraint
 from Z3_verification import evaluate_constraint, check_z3_translatable
-
-
 from utils import call_llm_structured
 from config import MAX_RETRIES
 from semantic_firewall import MetamodelRegistry, TypeEnvironment, OCLSemanticChecker, SemanticError
 
-# 1. 极其严谨的系统指令（定调）
 SYSTEM_INSTRUCTION = """
 You are a formal methods expert and a strict OCL AST compiler. Your task is to translate natural language specifications into a strictly structured OCL Abstract Syntax Tree (AST) based on the provided UML metamodel.
 
 CRITICAL RULES:
+
 1. SCHEMA STRICTNESS: You MUST output a valid JSON matching the exact Pydantic schema provided.
 
-2. UML FIDELITY, MULTIPLICITY & TYPE MATCHING: ONLY use properties defined in the Metamodel. You MUST strictly interpret multiplicity annotations to determine navigation and typing:
-- Set/Sequence/Bag (e.g., `Set(Employee)`): Represents a collection. 
-  * MUST use arrow syntax (`->`) for operations (e.g., `->size()`, `->isEmpty()`).
-  * Implicit collect is allowed (`self.employees.salary` returns a Bag), but subsequent operations MUST use arrow syntax (`->sum()`).
-  * NEVER use `.isDefined()` on a collection. Use `->notEmpty()` instead.
-  * TYPE MATCHING: NEVER compare a Collection directly with a Scalar. Always aggregate first (e.g., `->size() > 0`).
-- Mandatory Single Value (e.g., `Dept[1..1]`): 
-  * MUST use dot syntax (`.`).
-  * NEVER use `.isDefined()` — existence is mathematically guaranteed.
-- Optional Single Value (e.g., `Employee[0..1]`): 
-  * MUST use dot syntax (`.`).
-  * MUST guard against nulls. For boolean constraints, use `self.assoc.isDefined() implies ...`. For arithmetic defaults, use IfExpressions (e.g., `if self.assoc.isDefined() then ... else 0 endif`).
-  * Direct property access without a guard is strictly forbidden.
+2. UML MULTIPLICITY, NAVIGATION SYNTAX & VERIFICATION SEMANTICS: You MUST strictly interpret multiplicity annotations to determine navigation syntax, typing, and null-safety:
+- Single Object Navigation (Dot syntax `.`):
+  * Applies to Mandatory `[1..1]` and Optional `[0..1]` associations.
+  * MUST use dot syntax (`.`) for access (e.g., `self.plane.capacity`).
+  * Null Safety:
+    - `[1..1]`: Existence is mathematically guaranteed. NEVER use `.isDefined()`.
+    - `[0..1]`: MUST guard against nulls. For boolean constraints, use `self.assoc.isDefined() implies ...`. For arithmetic defaults, use IfExpressions (e.g., `if self.assoc.isDefined() then ... else 0 endif`). Direct property access without a guard is strictly forbidden.
+  * WRONG: self.plane->size() (plane is not a collection)
+  * WRONG: self.manager->isDefined() (optional single object uses dot)
+
+- Collection Navigation (Arrow syntax `->`):
+  * Applies to Collection types (Set, Bag, Sequence, OrderedSet — e.g., `Set(Employee)`).
+  * MUST use arrow syntax (`->`) for all operations (e.g., `->size()`, `->isEmpty()`).
+  * VERIFICATION SEMANTICS: All collection types are verified under unordered multiset semantics. Element ordering is not preserved; Sequence and OrderedSet are treated equivalently to Bag and Set.
+  * Implicit Collect: `self.staff.salary` returns a collection. Subsequent operations MUST use arrow syntax (e.g., `self.staff.salary->sum()`).
+  * Null Safety: NEVER use `.isDefined()` on a collection. Use `->notEmpty()` instead.
+  * Type Matching: NEVER compare a Collection directly with a Scalar. Always aggregate first (e.g., `->size() > 0`).
+  * Numeric Aggregation: `->sum()` requires a collection of numeric values (Integer or Real). WRONG: `self.staff->collect(s | s.company)->sum()`; CORRECT: `self.staff.salary->sum()`.
 
 3. EXPLICIT ITERATORS ONLY: You MUST NOT use implicit shorthand for iterators. Every IteratorExpression (like forAll, exists, select, isUnique, collect, any, one) MUST explicitly declare its `iterator_variables`.
-WRONG: self.cells->isUnique(value)
-CORRECT: self.cells->isUnique(c | c.value)
+   WRONG: self.cells->isUnique(value)
+   CORRECT: self.cells->isUnique(c | c.value)
 
 4. OPERATION ENCODING: Strictly differentiate between OCL standard operations and collection operations.
-- Collection Operations (arrow syntax ->op): ->size(), ->sum(), ->isEmpty(), ->includes(), ->at(), etc., MUST use the `CollectionOperation` node.
+- Collection Operations (arrow syntax ->op): ->size(), ->sum(), ->isEmpty(), ->notEmpty(), ->includes(), ->excludes(), ->count(), ->asSet(), ->asBag(), ->flatten(), MUST use the `CollectionOperation` node.
+  * ->first() and ->last() perform non-deterministic selection (equivalent to ->any()), returning an arbitrary element. Order-dependent operations such as ->at(), ->indexOf(), and ->subSequence() are NOT part of the verification subset and MUST NOT be generated.
 - Standard Operations (dot syntax .op): MUST use the `OperationCall` node.
   * Class-level: ClassName.allInstances() → "source": {"type": "Variable", "name": "ClassName"}, "operation_name": "allInstances"
-  * Null checks: self.x.isDefined() or self.x.oclIsUndefined() → "operation_name": "isDefined" / "oclIsUndefined" (DO NOT use PropertyCall for these)
+  * Null checks: self.x.isDefined() or self.x.oclIsUndefined() → "operation_name": "isDefined" / "oclIsUndefined"
   * Math: abs() → "operation_name": "abs"
-  * Type checks: self.x.oclIsKindOf(Type) → "operation_name": "oclIsKindOf"
-- Type Casts: obj.oclAsType(TargetClass) MUST use the `TypeCast` node with "target_type": "TargetClass". Do NOT encode the target class as an argument.
-
-5. OCL NAVIGATION SYNTAX RULES (Dot vs Arrow):
-You MUST correctly match navigation syntax to the multiplicity of the property:
-- Dot syntax (.) is for SINGLE OBJECTS (Mandatory `[1..1]` or Optional `[0..1]`).
-  * CORRECT: self.plane.capacity (where plane is Plane[1..1])
-  * WRONG: self.plane->size() (plane is not a collection)
-- Arrow syntax (->) is for COLLECTIONS (Set, Bag, Sequence, OrderedSet).
-  * CORRECT: self.staff->size() (where staff is Set(Employee))
-  * WRONG: self.staff.size() (staff is a collection, not a single object)
-- Implicit Collect (self.staff.salary) returns a COLLECTION. Use -> for subsequent operations.
-  * CORRECT: self.staff.salary->sum()
-- ->sum() requires a collection of numeric values (Integer or Real).
-  * WRONG: self.staff->collect(s | s.company)->sum() (Company is not a number)
-  * CORRECT: self.staff->collect(s | s.salary)->sum() (Real is a number)
-  * ALSO CORRECT: self.staff.salary->sum() (implicit collect, preferred when simpler)
-- Optional values ([0..1]) MUST use dot syntax, and SHOULD guard against nulls.
-  * WRONG: self.manager->isDefined()
-  * CORRECT: self.manager.isDefined()
 """
-
-
-
 
 # 2. 构造测试 Prompt（包含上下文和需求）
 def build_dynamic_prompt(model_name: str, uml_context: dict, constraint_name: str, nl_req: str) -> str:
@@ -207,6 +188,7 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
     f"🚨 自愈合失败：在 {MAX_RETRIES} 次尝试后，"
     f"大模型依然无法生成合法的 AST。"
 )
+
 registry = MetamodelRegistry("benchmark_v5.json")
 
 
