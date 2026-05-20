@@ -453,7 +453,7 @@
         "superclasses": [],
         "attributes": {},
         "associations": {
-          "points": "Sequence(Point)"
+          "points": "Set(Point)"
         }
       }
     },
