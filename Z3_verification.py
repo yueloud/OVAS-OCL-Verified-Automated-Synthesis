@@ -1,12 +1,10 @@
-import json
 import re
-import hashlib
 import itertools
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any
 from z3 import *
 from json_schema import (OCLExpression, PropertyCall, OperationCall, BinaryExpression,
-                         IteratorExpression, CollectionOperation, Variable, LiteralExpression,
-                         IfExpression, UnaryExpression, LetExpression, TypeCast, CollectionLiteral)
+                         IteratorExpression, CollectionOperation, LiteralExpression,
+                         IfExpression, UnaryExpression, LetExpression, CollectionLiteral)
 
 
 # ==========================================
@@ -1060,12 +1058,8 @@ class OCLZ3Translator:
 # 组件 3 & 4：基于蕴含关系的定性分级判定
 # ==========================================
 
-def check_equivalence(gt_expr: Any, llm_expr: Any, meta_encoder: BoundedMetamodelEncoder,
-                      context_class: str, self_var) -> int:
-    """
-    基于 Z3 蕴含关系判定 GT 与 LLM 的逻辑等价性。
-    返回离散分数：100 (等价), 60 (强化), 40 (弱化), 0 (不可比)
-    """
+def check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var) -> dict:
+    """基于 Z3 蕴含关系判定，返回结构化结果（含反例）"""
     null_const = meta_encoder.null_consts[context_class]
     gt_forall = ForAll([self_var], Implies(self_var != null_const, gt_expr))
     llm_forall = ForAll([self_var], Implies(self_var != null_const, llm_expr))
@@ -1073,41 +1067,57 @@ def check_equivalence(gt_expr: Any, llm_expr: Any, meta_encoder: BoundedMetamode
     s = Solver()
     s.add(meta_encoder.axioms)
 
-    # 判定 1: GT 是否蕴含 LLM (如果否，则 LLM 存在弱化/放宽，允许了 GT 不允许的状态)
+    # 判定 1: GT 是否蕴含 LLM (弱化检查)
     s.push()
     s.add(gt_forall)
     s.add(Not(llm_forall))
     is_weakened = (s.check() == sat)
+    weakened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_weakened else None
     s.pop()
 
-    # 判定 2: LLM 是否蕴含 GT (如果否，则 LLM 存在强化/收窄，排除了 GT 允许的状态)
+    # 判定 2: LLM 是否蕴含 GT (强化检查)
     s.push()
     s.add(llm_forall)
     s.add(Not(gt_forall))
     is_strengthened = (s.check() == sat)
+    strengthened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_strengthened else None
     s.pop()
 
-    # 定性分级与离散映射
+    # 定性分级
     if not is_weakened and not is_strengthened:
-        return 100  # 逻辑等价 (EQUIVALENT)
+        result = "EQUIVALENT"
     elif not is_weakened and is_strengthened:
-        return 60  # 过度约束 (STRENGTHENED) - LLM 严于 GT
+        result = "STRENGTHENED"
     elif is_weakened and not is_strengthened:
-        return 40  # 约束不足 (WEAKENED) - LLM 宽于 GT
+        result = "WEAKENED"
     else:
-        return 0  # 逻辑交叉/偏移 (INCOMPARABLE)
+        result = "INCOMPARABLE"
 
+    return {
+        "result": result,
+        "score": {"EQUIVALENT": 100, "STRENGTHENED": 60, "WEAKENED": 40, "INCOMPARABLE": 0}[result],
+        "weakened_counterexample": weakened_ce,
+        "strengthened_counterexample": strengthened_ce
+    }
 
 # ==========================================
 # 主控流水线
 # ==========================================
-def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_context: dict, context_class: str) -> float:
+def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_context: dict, context_class: str) -> dict:
+    """
+    评估 GT 与 LLM 约束的等价性，返回包含判定结果、分数和反例的结构化字典。
+    """
     # 1. 预检：防御性隔离，确保 LLM 的 AST 可翻译
     is_translatable, err_msg = check_z3_translatable(llm_ast, uml_context, context_class)
     if not is_translatable:
-        # 编译失败，逻辑必然不等价，直接返回 0 分
-        # 可选：将 err_msg 记录到日志中，用于后续分析 LLM 的编译级错误
-        return 0.0
+        # 编译失败，逻辑必然不等价，直接返回 0 分及空反例
+        return {
+            "result": "INCOMPARABLE",
+            "score": 0.0,
+            "weakened_counterexample": None,
+            "strengthened_counterexample": None,
+            "compilation_error": err_msg  # 附带编译错误信息供主程序参考
+        }
 
     # 2. 编码元模型
     meta_encoder = BoundedMetamodelEncoder(uml_context, scope=3)
@@ -1127,9 +1137,8 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_conte
     if llm_safety:
         llm_expr = And(And(*llm_safety), llm_expr)
 
-    # 5. 基于蕴含关系的定性分级判定
+    # 5. 基于蕴含关系的定性分级判定（直接返回字典）
     return check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var)
-
 
 def check_z3_translatable(llm_ast: OCLExpression, uml_context: dict, context_class: str) -> tuple:
     try:
@@ -1146,3 +1155,50 @@ def check_z3_translatable(llm_ast: OCLExpression, uml_context: dict, context_cla
         traceback.print_exc()
         return False, f"Z3 Compilation Error: {type(e).__name__}: {e}"
 
+
+def extract_counterexample(solver: Solver, meta_encoder: BoundedMetamodelEncoder,
+                           context_class: str, self_var) -> str:
+    """从 Z3 sat 的 solver 中提取人类可读的反例状态描述"""
+    model = solver.model()
+
+    # 1. 确定 self 的具体值
+    self_val = model.eval(self_var, model_completion=True)
+    lines = [f"Counter-example state: self = {self_val}"]
+
+    # 2. 遍历当前 self 的所有属性值
+    sort = meta_encoder.sorts[context_class]
+    cls_info = meta_encoder.uml_context.get(context_class, {})
+
+    for attr_name, attr_type in cls_info.get("attributes", {}).items():
+        func_key = f"{context_class}.{attr_name}"
+        if func_key in meta_encoder.attr_funcs:
+            val = model.eval(meta_encoder.attr_funcs[func_key](self_val), model_completion=True)
+            lines.append(f"  self.{attr_name} = {val}")
+
+    # 3. 遍历当前 self 的所有关联
+    for assoc_name, assoc_type in cls_info.get("associations", {}).items():
+        func_key = f"{context_class}.{assoc_name}"
+        if func_key in meta_encoder.assoc_funcs:
+            meta = meta_encoder.assoc_meta[func_key]
+            if meta["is_count"]:
+                # 集合关联：报告每个目标实例的计数
+                parts = []
+                for tgt_inst in meta_encoder.get_valid_instances(meta["tgt_class"]):
+                    cnt = model.eval(
+                        meta_encoder.assoc_funcs[func_key](self_val, tgt_inst),
+                        model_completion=True
+                    )
+                    cnt_int = cnt.as_long() if hasattr(cnt, 'as_long') else str(cnt)
+                    if cnt_int != 0:
+                        parts.append(f"{tgt_inst}(count={cnt_int})")
+                if parts:
+                    lines.append(f"  self.{assoc_name}: {', '.join(parts)}")
+            else:
+                # 单值关联：报告导航目标
+                tgt_val = model.eval(
+                    meta_encoder.assoc_funcs[func_key](self_val),
+                    model_completion=True
+                )
+                lines.append(f"  self.{assoc_name} = {tgt_val}")
+
+    return "\n".join(lines)

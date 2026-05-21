@@ -1,12 +1,7 @@
 import re
 import json
-from typing import List, Dict
-from json_schema import (
-    OCLExpression, LiteralExpression, Variable, PropertyCall,
-    OperationCall, BinaryExpression, UnaryExpression,
-    IteratorExpression, CollectionOperation, IfExpression,
-    LetExpression, CollectionLiteral, TypeCast
-)
+from typing import List, Dict, Union
+from json_schema import OCLExpression
 
 
 class SemanticError(Exception):
@@ -101,7 +96,8 @@ def extract_inner_type(collection_type: str) -> str:
 # ==========================================
 class OCLSemanticChecker:
     @classmethod
-    def _infer_type_from_value(cls, value) -> str:
+    def _infer_type_from_value(cls, value: Union[str, int, float, bool, None]) -> str:
+
         if value is None:
             return "Null"
         if isinstance(value, bool):  # 注意：bool 必须在 int 之前判断，因为 bool 是 int 的子类
@@ -178,17 +174,18 @@ class OCLSemanticChecker:
             source_type = cls.check(expr.source, env)
             is_col = is_collection_type(source_type)
             base_type = extract_inner_type(source_type) if is_col else source_type
-            clean_base = re.sub(r'\[.*?\]', '', base_type)
+            clean_base = re.sub(r'\[.*?]', '', base_type)
 
             if clean_base.startswith("Class("):
                 raise SemanticError(
                     f"不能直接对类调用属性 '{expr.property_name}'"
                 )
 
-            prop_type = env.registry.resolve_property(
+            prop_type: str = str(env.registry.resolve_property(
                 env.uml_context, clean_base, expr.property_name
-            )
-            clean_prop_type = re.sub(r'\[.*?\]', '', prop_type)
+            ))
+
+            clean_prop_type = re.sub(r'\[.*?]', '', prop_type)
 
             if is_col:
                 flat_type = (
@@ -223,7 +220,7 @@ class OCLSemanticChecker:
                     if hasattr(arg, 'value') and isinstance(arg.value, str):
                         return arg.value
                     elif hasattr(arg, 'name'):  # Variable 节点
-                        return arg.name
+                        return str(arg.name)
                 # 无法推断目标类型时，给出精确错误
                 raise SemanticError(
                     f"oclAsType() 无法推断目标类型。请在 arguments 中明确指定类型名称。"

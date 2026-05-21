@@ -72,11 +72,15 @@ def sanitize_filename(name: str) -> str:
     clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', name.replace(' ', '_'))
     return re.sub(r'_+', '_', clean_name) # 合并连续的下划线
 
-def generate_ast_with_reflexion(case_key: str, context_class: str, initial_prompt: str) -> OCLDocument:
+
+def generate_ast_with_reflexion(case_key: str, context_class: str, initial_prompt: str, gt_ast_data: dict,
+                                uml_context: dict) -> tuple[OCLDocument, dict]:
     current_prompt = initial_prompt
     attempt = 0
     max_transient_retries = 30
     transient_count = 0
+    z3_reflexion_round = 0
+    max_z3_reflexion_rounds = 3
 
     while attempt < MAX_RETRIES:
         attempt += 1
@@ -103,23 +107,101 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
             validated_doc = OCLDocument(**parsed_ast)
             print("✅ Pydantic 深度校验通过！结构完美。")
 
+            # === 防御性检查：确保至少生成了一个约束 ===
+            if not validated_doc.constraints:
+                raise ValueError("LLM generated an empty constraints list. At least one constraint is required.")
+
+            # 统一提取主约束（与后续 evaluate_constraint 取 [0] 的逻辑对齐）
+            target_constraint = validated_doc.constraints[0]
+
             print("🛡️ 开始进行 AST 语义图结构校验...")
             env = TypeEnvironment(case_key=case_key, context_class=context_class, registry=registry)
-            for constraint in validated_doc.constraints:
-                OCLSemanticChecker.check(constraint.expression, env)
+            OCLSemanticChecker.check(target_constraint.expression, env)
             print("✅ 语义校验通过！AST 逻辑无懈可击。")
 
-            # === 新增：第三道防线 - Z3 可编译性校验 ===
+            # === 第二道防线：Z3 可编译性校验 ===
             print("🛡️ 开始进行 Z3 可编译性校验...")
             is_z3_ok, z3_error = check_z3_translatable(
-                constraint.expression, env.uml_context, context_class
+                target_constraint.expression, env.uml_context, context_class
             )
             if not is_z3_ok:
                 raise ValueError(f"Z3 Compilation Error: {z3_error}")
 
             print("✅ Z3 编译校验通过！AST 结构完全可形式化。")
 
-            return validated_doc
+            # === 第三道防线：Z3 等价性校验与反例驱动自愈 (CEGAR) ===
+            print("⚖️ 开始进行 Z3 语义等价性评估...")
+            gt_constraint = OCLConstraint(**gt_ast_data)
+            gt_expr = gt_constraint.expression
+            llm_expr = validated_doc.constraints[0].expression
+
+            try:
+                eq_result = evaluate_constraint(
+                    gt_ast=gt_expr,
+                    llm_ast=llm_expr,
+                    uml_context=uml_context,
+                    context_class=context_class
+                )
+            except Exception as eval_err:
+                # 如果等价性评估期间发生Z3内部异常，当作编译错误处理
+                raise ValueError(f"Z3 Evaluation Exception: {str(eval_err)}")
+
+            if eq_result["result"] == "EQUIVALENT":
+                print("✅ Z3 判定：语义完全等价！")
+                return validated_doc, eq_result
+
+            # 不等价处理：构造反例反馈
+            z3_reflexion_round += 1
+            if z3_reflexion_round > max_z3_reflexion_rounds:
+                print(f"⚠️ Z3 反例自愈已达最大轮次 ({max_z3_reflexion_rounds})，终止自愈并返回当前最佳结果。")
+                return validated_doc, eq_result
+
+            print(f"❌ Z3 判定: {eq_result['result']}，准备第 {z3_reflexion_round} 次反例反馈...")
+
+            feedback_parts = [
+                f"\n\n【Z3 FORMAL VERIFICATION REJECTION】",
+                f"Your OCL constraint is {eq_result['result']} relative to the ground truth.",
+            ]
+
+            if eq_result["result"] == "WEAKENED":
+                feedback_parts.append(
+                    "Your constraint is TOO PERMISSIVE — it allows a state that the specification rejects."
+                )
+                if eq_result.get("weakened_counterexample"):
+                    feedback_parts.append(
+                        f"Counter-example state where your constraint is satisfied but the specification is violated:\n"
+                        f"{eq_result['weakened_counterexample']}"
+                    )
+
+            elif eq_result["result"] == "STRENGTHENED":
+                feedback_parts.append(
+                    "Your constraint is TOO RESTRICTIVE — it rejects a state that the specification allows."
+                )
+                if eq_result.get("strengthened_counterexample"):
+                    feedback_parts.append(
+                        f"Counter-example state where the specification is satisfied but your constraint rejects it:\n"
+                        f"{eq_result['strengthened_counterexample']}"
+                    )
+
+            elif eq_result["result"] == "INCOMPARABLE":
+                feedback_parts.append(
+                    "Your constraint and the specification are logically incomparable (cross-implication failure)."
+                )
+                if eq_result.get("weakened_counterexample"):
+                    feedback_parts.append(
+                        f"State where your constraint is too permissive:\n{eq_result['weakened_counterexample']}"
+                    )
+                if eq_result.get("strengthened_counterexample"):
+                    feedback_parts.append(
+                        f"State where your constraint is too restrictive:\n{eq_result['strengthened_counterexample']}"
+                    )
+
+            feedback_parts.append(
+                "Please revise your OCL AST to match the exact semantics of the specification."
+            )
+
+            current_prompt += "\n".join(feedback_parts)
+            continue
 
         except ValidationError as pydantic_err:
             print(f"❌ Schema 校验失败，触发自愈合机制...")
@@ -128,10 +210,9 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
                 f"\n\n【CRITICAL SYSTEM FEEDBACK】\n"
                 f"Your previous JSON output failed the Pydantic Schema validation. "
                 f"You MUST fix the specific fields mentioned in the error below:\n"
-                f"```text\n{error_details}\n```\n"
+                f"text\n{error_details}\n```\n"
                 f"Do NOT change the correct parts, only fix the structural errors."
-            )
-
+                )
         except SemanticError as semantic_err:
             print(f"❌ 语义防火墙拦截: {semantic_err}")
             current_prompt += (
@@ -143,12 +224,11 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
                 f"and ensure all attributes/associations exist in the UML context."
             )
 
-
-        # === 捕获 Z3 编译错误 ===
+            # === 捕获 Z3 编译错误 ===
         except ValueError as z3_err:
             err_str = str(z3_err)
             # 统一拦截：无论是主动抛出的 ValueError 还是 check 函数抛出的异常
-            if "Scalar/Collection mismatch" in err_str or "Z3 Compilation Error" in err_str or "Z3 Internal Exception" in err_str:
+            if "Scalar/Collection mismatch" in err_str or "Z3 Compilation Error" in err_str or "Z3 Internal Exception" in err_str or "Z3 Evaluation Exception" in err_str:
                 print(f"❌ Z3 编译防火墙拦截: {err_str}")
 
                 current_prompt += (
@@ -185,12 +265,13 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
                 raise api_err
 
     raise RuntimeError(
-    f"🚨 自愈合失败：在 {MAX_RETRIES} 次尝试后，"
-    f"大模型依然无法生成合法的 AST。"
-)
+            f"🚨 自愈合失败：在 {MAX_RETRIES} 次尝试后，"
+            f"大模型依然无法生成合法的 AST。"
+        )
+
+
 
 registry = MetamodelRegistry("benchmark_v5.json")
-
 
 def main():
     print("🚀 启动 OCL AST 批量生成与验证流水线...")
@@ -241,49 +322,72 @@ def main():
 
                 print(f"\n▶️ 正在生成并校验约束: [{constraint_name}]")
                 try:
-                    llm_ast_doc = generate_ast_with_reflexion(
+                    llm_ast_doc, eq_result_cached = generate_ast_with_reflexion(
                         case_key=case_key,
                         context_class=context_class,
-                        initial_prompt=initial_prompt
+                        initial_prompt=initial_prompt,
+                        gt_ast_data = gt_ast_data,
+                        uml_context = uml_context
                     )
                     # 稳健的落盘保存
                     with open(ast_path, "w", encoding="utf-8") as f:
                         f.write(llm_ast_doc.model_dump_json(indent=2))
                     print(f"✅ [{constraint_name}] AST 成功入库。")
+
+                    score_data = {
+                        "case_key": case_key,
+                        "model_name": model_name,
+                        "constraint_name": constraint_name,
+                        "result": eq_result_cached["result"],
+                        "score": eq_result_cached["score"],
+                        "weakened_counterexample": eq_result_cached.get("weakened_counterexample"),
+                        "strengthened_counterexample": eq_result_cached.get("strengthened_counterexample")
+                    }
+                    with open(score_path, "w", encoding="utf-8") as f:
+                        f.write(json.dumps(score_data, indent=2, ensure_ascii=False))
+                    continue  #生成且评估完成，直接跳过后续重复评估
+
                 except Exception as e:
                     print(f"🚨 放弃生成 [{constraint_name}]: {e}")
                     with open(error_log_file, "a", encoding="utf-8") as f:
                         f.write(f"[{model_name}] {constraint_name} - 生成失败: {str(e)}\n")
-                    continue  # 生成失败，直接跳过后续评估
+                    continue
 
             # ================= 步骤 2: Z3 语义等价性评估 =================
             if os.path.exists(score_path):
                 print(f"⏭️ 发现已有分数文件 [{constraint_name}]，跳过评估。")
                 continue
 
-            print(f"⚖️ [{constraint_name}] 开始 Z3 语义等价性评估...")
+            print(f"⚖️ [{constraint_name}] 开始 Z3 语义等价性评估(针对缓存AST)...")
             try:
                 gt_constraint = OCLConstraint(**gt_ast_data)
                 gt_expr = gt_constraint.expression
                 llm_expr = llm_ast_doc.constraints[0].expression
 
-                score = evaluate_constraint(
+                # eq_result 现在是一个字典
+                eq_result = evaluate_constraint(
                     gt_ast=gt_expr,
                     llm_ast=llm_expr,
                     uml_context=uml_context,
                     context_class=gt_constraint.context_class
                 )
-                print(f"🎯 [{constraint_name}] Z3 语义相似度得分: {score}")
+
+                print(f"🎯 [{constraint_name}] Z3 判定结果: {eq_result['result']} (得分: {eq_result['score']})")
 
                 # 保存分数详情
                 score_data = {
                     "case_key": case_key,
                     "model_name": model_name,
                     "constraint_name": constraint_name,
-                    "score": score
+                    "result": eq_result["result"],
+                    "score": eq_result["score"],
+                    "weakened_counterexample": eq_result.get("weakened_counterexample"),
+                    "strengthened_counterexample": eq_result.get("strengthened_counterexample")
                 }
+
                 with open(score_path, "w", encoding="utf-8") as f:
-                    json.dump(score_data, f, indent=2)
+                    f.write(json.dumps(score_data, indent=2, ensure_ascii=False))
+
             except Exception as z3_err:
                 print(f"🚨 [{constraint_name}] Z3 评估失败: {z3_err}")
                 with open(error_log_file, "a", encoding="utf-8") as f:
