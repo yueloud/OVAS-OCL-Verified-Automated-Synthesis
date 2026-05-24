@@ -15,7 +15,7 @@ class LiteralExpression(OCLNode):
 class CollectionLiteral(OCLNode):
     """集合字面量节点 (例如: Set{1, 2, 3})"""
     type: TypeLiteral["CollectionLiteral"] = "CollectionLiteral"
-    collection_kind: TypeLiteral["Set", "Bag", "Sequence", "OrderedSet"]
+    collection_kind: TypeLiteral["Set", "Bag"]
     elements: List["OCLExpression"] = Field(default_factory=list)
 
 class Variable(OCLNode):
@@ -54,8 +54,8 @@ class IteratorExpression(OCLNode):
     """迭代器表达式节点"""
     type: TypeLiteral["IteratorExpression"] = "IteratorExpression"
     source: "OCLExpression"
-    iterator_type: TypeLiteral["forAll", "exists", "select", "reject", "collect", "any", "one", "isUnique"]
-    iterator_variables: List[Variable]  # 修复：支持多变量绑定 (如 forAll(e1, e2 | ...))
+    iterator_type: TypeLiteral["forAll", "exists", "select", "reject", "collect", "isUnique"]
+    iterator_variables: List[Variable]
     body: "OCLExpression"
 
 class CollectionOperation(OCLNode):
@@ -63,7 +63,7 @@ class CollectionOperation(OCLNode):
     type: TypeLiteral["CollectionOperation"] = "CollectionOperation"
     source: "OCLExpression"
     operation_type: TypeLiteral["size", "isEmpty", "notEmpty", "includes", "excludes", "includesAll", "excludesAll", "sum", "count",
-        "asSet", "asBag", "flatten", "first", "last"]
+        "asSet", "asBag", "flatten", "union", "intersection"]
     arguments: List["OCLExpression"] = Field(default_factory=list)
 
 class IfExpression(OCLNode):

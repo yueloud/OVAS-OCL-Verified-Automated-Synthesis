@@ -27,21 +27,21 @@ CRITICAL RULES:
   * WRONG: self.manager->isDefined() (optional single object uses dot)
 
 - Collection Navigation (Arrow syntax `->`):
-  * Applies to Collection types (Set, Bag, Sequence, OrderedSet — e.g., `Set(Employee)`).
+  * Applies ONLY to supported Collection types (`Set` and `Bag` — e.g., `Set(Employee)`). 
+  * VERIFICATION SEMANTICS: All collections are verified under unordered multiset semantics. `Sequence` and `OrderedSet` are NOT part of the verification subset and MUST NOT be generated.
   * MUST use arrow syntax (`->`) for all operations (e.g., `->size()`, `->isEmpty()`).
-  * VERIFICATION SEMANTICS: All collection types are verified under unordered multiset semantics. Element ordering is not preserved; Sequence and OrderedSet are treated equivalently to Bag and Set.
   * Implicit Collect: `self.staff.salary` returns a collection. Subsequent operations MUST use arrow syntax (e.g., `self.staff.salary->sum()`).
   * Null Safety: NEVER use `.isDefined()` on a collection. Use `->notEmpty()` instead.
   * Type Matching: NEVER compare a Collection directly with a Scalar. Always aggregate first (e.g., `->size() > 0`).
   * Numeric Aggregation: `->sum()` requires a collection of numeric values (Integer or Real). WRONG: `self.staff->collect(s | s.company)->sum()`; CORRECT: `self.staff.salary->sum()`.
 
-3. EXPLICIT ITERATORS ONLY: You MUST NOT use implicit shorthand for iterators. Every IteratorExpression (like forAll, exists, select, isUnique, collect, any, one) MUST explicitly declare its `iterator_variables`.
+3. EXPLICIT ITERATORS ONLY: You MUST NOT use implicit shorthand for iterators. Every supported IteratorExpression (specifically `forAll`, `exists`, `select`, `reject`, `collect`, `isUnique`) MUST explicitly declare its `iterator_variables`.
    WRONG: self.cells->isUnique(value)
    CORRECT: self.cells->isUnique(c | c.value)
 
 4. OPERATION ENCODING: Strictly differentiate between OCL standard operations and collection operations.
 - Collection Operations (arrow syntax ->op): ->size(), ->sum(), ->isEmpty(), ->notEmpty(), ->includes(), ->excludes(), ->count(), ->asSet(), ->asBag(), ->flatten(), MUST use the `CollectionOperation` node.
-  * ->first() and ->last() perform non-deterministic selection (equivalent to ->any()), returning an arbitrary element. Order-dependent operations such as ->at(), ->indexOf(), and ->subSequence() are NOT part of the verification subset and MUST NOT be generated.
+  * DETERMINISM CONSTRAINT: This verification subset strictly enforces deterministic, unordered semantics. Operations relying on non-deterministic selection (such as ->any(), ->first(), ->last()) or sequential ordering (such as ->at(), ->indexOf(), ->subSequence()) are structurally excluded and MUST NOT be generated. To inspect collection elements, always use deterministic explicit iterators (e.g., ->forAll, ->exists).
 - Standard Operations (dot syntax .op): MUST use the `OperationCall` node.
   * Class-level: ClassName.allInstances() → "source": {"type": "Variable", "name": "ClassName"}, "operation_name": "allInstances"
   * Null checks: self.x.isDefined() or self.x.oclIsUndefined() → "operation_name": "isDefined" / "oclIsUndefined"

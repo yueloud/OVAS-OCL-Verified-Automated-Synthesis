@@ -76,8 +76,8 @@ class TypeEnvironment:
 # 强化版类型辅助函数
 # ==========================================
 def is_collection_type(type_str: str) -> bool:
-    """支持 OCL 所有的四种集合类型"""
-    return type_str.startswith(("Set(", "Bag(", "Sequence(", "OrderedSet("))
+    """核心子集仅支持 Set 和 Bag"""
+    return type_str.startswith(("Set(", "Bag("))
 
 
 def extract_inner_type(collection_type: str) -> str:
@@ -193,8 +193,7 @@ class OCLSemanticChecker:
                     extract_inner_type(clean_prop_type) if is_collection_type(clean_prop_type) else clean_prop_type
 
                 )
-                # 修改点：强制将 Sequence/OrderedSet 的隐式导航结果降级为 Bag
-                # 这与底层 Z3 的无序多重集编码对齐
+                # OCL 隐式 collect 语义：对集合属性导航结果（如 Set(X).prop），降级为 Bag
                 return f"Bag({flat_type})"
 
             return clean_prop_type
@@ -225,20 +224,6 @@ class OCLSemanticChecker:
                 raise SemanticError(
                     f"oclAsType() 无法推断目标类型。请在 arguments 中明确指定类型名称。"
                 )
-
-            elif op == "any":
-                if not is_collection_type(source_type):
-                    raise SemanticError(
-                        f"any() 只能用于集合类型，得到 {source_type}"
-                    )
-                # any(predicate) 的谓词必须返回 Boolean
-                if expr.arguments:
-                    arg_type = cls.check(expr.arguments[0], env)
-                    if arg_type != "Boolean":
-                        raise SemanticError(
-                            f"any() 的参数必须返回 Boolean，得到 {arg_type}"
-                        )
-                return extract_inner_type(source_type)
 
             elif op == "abs":
                 if source_type not in ["Integer", "Real"]:
@@ -381,16 +366,38 @@ class OCLSemanticChecker:
 
                 return f"Bag({inner})"
 
-            elif expr.operation_type in ["first", "last"]:
-                # 修改点：拦截有序集合上的 first/last 调用
+            elif expr.operation_type in ["union", "intersection"]:
+                if not expr.arguments:
+                    raise SemanticError(f"'{expr.operation_type}' requires a collection argument.")
 
-                if source_type.startswith("Sequence(") or source_type.startswith("OrderedSet("):
+                # 推导参数的类型
+                arg_type = cls.check(expr.arguments[0], env)
+
+                # 双方都必须是集合
+                if not is_collection_type(arg_type):
+                    raise SemanticError(f"'{expr.operation_type}' argument must be a collection, got {arg_type}")
+
+                src_inner = extract_inner_type(source_type)
+                arg_inner = extract_inner_type(arg_type)
+
+                # 元素类型必须兼容 (Integer 和 Real 视为兼容，此处简化为必须一致)
+                if src_inner != arg_inner and not ({src_inner, arg_inner} == {"Integer", "Real"}):
                     raise SemanticError(
-                        f"算子违例: '{expr.operation_type}' 在有序集合上要求保序语义，"
-                        f"但底层形式化验证核心子集不支持序列保序。请使用迭代器 (如 ->any, ->exists) 替代。"
+                        f"Collection element type mismatch in {expr.operation_type}: "
+                        f"{source_type} vs {arg_type}"
                     )
-                # 对于 Set/Bag，等价于非确定性选择 ->any()，语义合法
-                return extract_inner_type(source_type)
+
+                # OCL 类型提升规则
+                src_is_set = source_type.startswith("Set(")
+                arg_is_set = arg_type.startswith("Set(")
+                inner_type = src_inner if src_inner != "Integer" else "Real"  # 处理 Int+Real 提升
+
+                if expr.operation_type == "union":
+                    result_is_set = src_is_set and arg_is_set
+                else:  # intersection
+                    result_is_set = src_is_set or arg_is_set  # 只要有一方是 Set，交集必然是 Set
+
+                return f"Set({inner_type})" if result_is_set else f"Bag({inner_type})"
 
             raise SemanticError(
                 f"未知的 CollectionOperation: '{expr.operation_type}'"
@@ -429,21 +436,13 @@ class OCLSemanticChecker:
             finally:
                 env.pop_scope()  # 无论成功失败必须出栈
 
-            if expr.iterator_type in ["forAll", "exists", "one"]:
+            if expr.iterator_type in ["forAll", "exists"]:
                 if body_type != "Boolean":
                     raise SemanticError(
                         f"迭代器违例: {expr.iterator_type} 闭包必须返回 Boolean，"
                         f"实际返回 {body_type}"
                     )
                 return "Boolean"
-
-            elif expr.iterator_type == "any":
-                if body_type != "Boolean":
-                    raise SemanticError(
-                        f"迭代器违例: any 闭包必须返回 Boolean，"
-                        f"实际返回 {body_type}"
-                    )
-                return inner_type  # any 返回元素而非 Boolean
 
             elif expr.iterator_type in ["select", "reject"]:
                 if body_type != "Boolean":
@@ -465,8 +464,7 @@ class OCLSemanticChecker:
             # 未知的迭代器类型 → 精确报错
             raise SemanticError(
                 f"未知的迭代器类型: '{expr.iterator_type}'。"
-                f"支持的类型: forAll, exists, select, reject, collect, "
-                f"any, one, isUnique"
+                f"核心子集仅支持: forAll, exists, select, reject, collect, isUnique"
             )
 
         elif node_type == "LetExpression":
