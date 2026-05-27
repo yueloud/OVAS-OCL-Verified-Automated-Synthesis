@@ -76,13 +76,16 @@ class BoundedMetamodelEncoder:
                 func_key = f"{class_name}.{assoc_name}"
 
                 if match_coll:
+                    coll_kind = match_coll.group(1)
                     tgt_name = match_coll.group(2)
                     tgt_sort = self.sorts[tgt_name]
                     self.assoc_funcs[func_key] = Function(
                         f'{class_name}_{assoc_name}_cnt', src_sort, tgt_sort, IntSort())
                     self.assoc_meta[func_key] = {
                         "src_class": class_name, "tgt_class": tgt_name,
-                        "is_count": True, "is_mandatory": False}
+                        "is_count": True, "is_mandatory": False,
+                        "is_set_semantic": (coll_kind == "Set")}
+
                 elif match_opt or match_req:
                     tgt_name = (match_opt or match_req).group(1)
                     tgt_sort = self.sorts[tgt_name]
@@ -96,7 +99,7 @@ class BoundedMetamodelEncoder:
     def _generate_axioms(self):
         self.axioms = []
 
-        # 铁律 1: Null 哨兵全局公理
+        # Null 哨兵全局公理
         for key, func in self.attr_funcs.items():
             class_name = key.split('.')[0]
             null = self.null_consts[class_name]
@@ -124,9 +127,12 @@ class BoundedMetamodelEncoder:
                 for src_inst in self.get_valid_instances(meta["src_class"]):
                     for tgt_inst in self.get_valid_instances(meta["tgt_class"]):
                         self.axioms.append(func(src_inst, tgt_inst) >= 0)
+                        if meta.get("is_set_semantic", False):
+                            self.axioms.append(func(src_inst, tgt_inst) <= 1)
+
             else:
                 self.axioms.append(func(src_null) == tgt_null)
-                # 铁律 4: [1..1] 关联非空全局约束
+                # [1..1] 关联非空全局约束
                 if meta["is_mandatory"]:
                     for src_inst in self.get_valid_instances(meta["src_class"]):
                         self.axioms.append(
@@ -237,7 +243,7 @@ class OCLZ3Translator:
                     root_inst=src_expr, cnt_func=func,
                     element_class=meta["tgt_class"],
                     valid_instances=valid_instances,
-                    is_set_semantic=False
+                    is_set_semantic=meta.get("is_set_semantic", False)
                 ), src_safety
             else:
                 result = func(src_expr)
@@ -290,24 +296,24 @@ class OCLZ3Translator:
                 tgt_class = meta["tgt_class"]
                 tgt_instances = self.me.get_valid_instances(tgt_class)
 
+                src_root_inst = coll_ref.root_inst
+
                 def mapped_cnt(root, tgt_elem):
                     total = IntVal(0)
                     for src_elem in coll_ref.valid_instances:
-                        # 解析历史上可能残留的 nav_chain
                         nav_val = src_elem
                         for nav_func in coll_ref.nav_chain:
                             nav_val = nav_func(nav_val)
-
-                        nav_val = func(nav_val)  # 执行本次导航
-                        src_cnt = coll_ref.cnt_func(coll_ref.root_inst if root is None else root, src_elem)
-                        # 如果导航结果命中目标元素，则累加源计数
+                        nav_val = func(nav_val)
+                        # 修复：使用闭包捕获的 src_root_inst，消除 None 回退
+                        src_cnt = coll_ref.cnt_func(src_root_inst, src_elem)
                         total = total + If(nav_val == tgt_elem, src_cnt, IntVal(0))
                     return total
 
                 return CollectionRef(
                     root_inst=coll_ref.root_inst, cnt_func=mapped_cnt,
                     element_class=tgt_class, valid_instances=tgt_instances,
-                    nav_chain=[], is_set_semantic = False
+                    nav_chain=[], is_set_semantic=False
                 ), src_safety
             else:
                 return self._handle_nested_collection(coll_ref, func_key, meta, src_safety)
@@ -321,17 +327,20 @@ class OCLZ3Translator:
         sub_element_class = meta["tgt_class"]
         sub_valid_instances = self.me.get_valid_instances(sub_element_class)
 
+        prop_root_inst = parent_ref.root_inst
         def combined_cnt(root, sub_elem):
             total = IntVal(0)
             for parent_elem in parent_ref.valid_instances:
-                parent_cnt = parent_ref.cnt_func(
-                    parent_ref.root_inst if root is None else root, parent_elem)
+                # 修复漏洞 5：使用闭包捕获的 prop_root_inst
+                parent_cnt = parent_ref.cnt_func(prop_root_inst, parent_elem)
                 sub_cnt = sub_cnt_func(parent_elem, sub_elem)
-                total = total + parent_cnt * sub_cnt
+                # 修复漏洞 2：线性化乘法消除 NIA
+                max_cnt = 1 if parent_ref.is_set_semantic else self.me.scope
+                total = total + self._linear_multiply(parent_cnt, sub_cnt, max_cnt)
             return total
 
         return CollectionRef(
-            root_inst=None, cnt_func=combined_cnt,
+            root_inst=prop_root_inst, cnt_func=combined_cnt,
             element_class=sub_element_class,
             valid_instances=sub_valid_instances,
             is_set_semantic=False), src_safety
@@ -500,8 +509,10 @@ class OCLZ3Translator:
                 accumulated_body_safety.append(body_safety_ref)
                 body_vals[inst] = body_val
 
+            filter_root_inst = coll_ref.root_inst
+
             def filtered_cnt(root, inst):
-                base_cnt = coll_ref.cnt_func(coll_ref.root_inst if root is None else root, inst)
+                base_cnt = coll_ref.cnt_func(filter_root_inst, inst)
                 b_val = body_vals.get(inst, BoolVal(False))
                 if ast.iterator_type == "select":
                     return If(And(base_cnt > 0, b_val), base_cnt, IntVal(0))
@@ -510,7 +521,7 @@ class OCLZ3Translator:
 
             final_safety = coll_safety + accumulated_body_safety
             return CollectionRef(
-                root_inst=coll_ref.root_inst,
+                root_inst=filter_root_inst,
                 cnt_func=filtered_cnt,
                 element_class=element_class,
                 valid_instances=coll_ref.valid_instances,
@@ -849,15 +860,15 @@ class OCLZ3Translator:
                 # 但为防御性编程，对原来是 IntSort 的 cnt_func，需包装桥接
                 def safe_numeric_cnt(orig_cnt_func, orig_root, orig_sort, root, inst):
                     if orig_sort == IntSort() and is_real(inst):
-                        # inst 是 RealSort，但原函数期望 IntSort
-                        # 仅当 inst 是整数时（如 3.0），桥接回 IntSort 调用
-                        return If(IsInt(inst), orig_cnt_func(orig_root if root is None else root, ToInt(inst)),
-                                  IntVal(0))
-                    return orig_cnt_func(orig_root if root is None else root, inst)
+                        return If(IsInt(inst), orig_cnt_func(orig_root, ToInt(inst)), IntVal(0))
+                    return orig_cnt_func(orig_root, inst)
+
+                left_root = coll_ref.root_inst
+                right_root = arg_expr.root_inst
 
                 def merged_cnt_literal(root, inst):
-                    cnt1 = safe_numeric_cnt(coll_ref.cnt_func, coll_ref.root_inst, left_sort, root, inst)
-                    cnt2 = safe_numeric_cnt(arg_expr.cnt_func, arg_expr.root_inst, right_sort, root, inst)
+                    cnt1 = safe_numeric_cnt(coll_ref.cnt_func, left_root, left_sort, root, inst)
+                    cnt2 = safe_numeric_cnt(arg_expr.cnt_func, right_root, right_sort, root, inst)
                     if op == "union":
                         return If(cnt1 > cnt2, cnt1, cnt2) if result_is_set else (cnt1 + cnt2)
                     else:
@@ -906,10 +917,11 @@ class OCLZ3Translator:
                         "Z3 Compilation Error: ->sum() requires numeric values, but ->collect() "
                         "returned a non-numeric type. Ensure the collect body evaluates to Integer or Real."
                     )
-                if is_real(body_val):
-                    terms.append(ToReal(cnt) * body_val)
-                else:
-                    terms.append(cnt * body_val)
+
+                max_cnt = 1 if coll_ref.is_set_semantic else self.me.scope
+                term = self._linear_multiply(cnt, body_val, max_cnt)
+                terms.append(term)
+
             return Sum(*terms) if terms else IntVal(0), sum_safety_acc  # 返回收集的 safety
 
         # 然后再检查 callable（FuncDeclRef）
@@ -931,10 +943,11 @@ class OCLZ3Translator:
                     )
                 nav_val = nav_func(nav_val)
             attr_val = attr_func(nav_val)
-            if is_real(attr_val):
-                terms.append(ToReal(cnt) * attr_val)
-            else:
-                terms.append(cnt * attr_val)
+            # 确定当前集合的 cnt 上界
+            max_cnt = 1 if coll_ref.is_set_semantic else self.me.scope
+            term = self._linear_multiply(cnt, attr_val, max_cnt)
+            terms.append(term)
+
         return Sum(*terms) if terms else IntVal(0), []
 
     # ---------- 集合源解析 ----------
@@ -983,6 +996,20 @@ class OCLZ3Translator:
             elem_expr, elem_safety = self.translate(elem, var_bindings)
             elements.append(elem_expr)
             literal_safety.extend(elem_safety)
+
+        if ast.collection_kind == "Set":
+            unique_elements = []
+            seen_keys = set()
+            for elem_expr in elements:
+                # 1. 归一化：消除代数/语法差异
+                normalized = simplify(elem_expr)
+                # 2. 防碰撞哈希键：融合代数表示与底层 Sort
+                key = f"{str(normalized)}:{normalized.sort()}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    # 优化：直接保留化简后的 AST，降低 SMT 求解器负担
+                    unique_elements.append(normalized)
+            elements = unique_elements
 
         def literal_cnt(root, inst):
             return IntVal(1)
@@ -1099,6 +1126,37 @@ class OCLZ3Translator:
         if op == '*': return left * right
         raise NotImplementedError(f"Arithmetic op: {op}")
 
+    def _linear_multiply(self, cnt: Any, val: Any, max_cnt: int) -> Any:
+        """
+        将符号整数 cnt 与 Z3 值 val 相乘，展开为条件加法，避免非线性算术。
+        假设 cnt 的范围是 [0, max_cnt]。
+        """
+        # 1. 严格的 Sort 匹配，拒接非法类型
+        if is_real(val):
+            zero = RealVal(0)
+        elif is_int(val):
+            zero = IntVal(0)
+        else:
+            raise ValueError(
+                f"Z3 Compilation Error: Cannot perform linear multiplication on non-numeric sort {val.sort()}."
+            )
+
+        # 2. 边界裁剪
+        if max_cnt <= 0:
+            return zero
+
+        # 3. 针对 Set 语义 (max_cnt == 1) 的极速优化
+        # 使用 cnt > 0 比 cnt == 1 更具防御性
+        if max_cnt == 1:
+            return If(cnt > 0, val, zero)
+
+        # 4. 一般 Bag 语义的线性展开 (例如 max_cnt = 3)
+        terms = []
+        for i in range(1, max_cnt + 1):
+            terms.append(If(cnt >= i, val, zero))
+
+        return Sum(*terms)
+
     def _apply_relational(self, op, left, right):
         if is_real(left) and is_int(right):
             right = ToReal(right)
@@ -1190,6 +1248,23 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_conte
     translator = OCLZ3Translator(meta_encoder)
     gt_expr, gt_safety = translator.translate(gt_ast, var_bindings)
     llm_expr, llm_safety = translator.translate(llm_ast, var_bindings)
+    null_const = meta_encoder.null_consts[context_class]
+
+    if gt_safety:
+        s_safety = Solver()
+        s_safety.add(meta_encoder.axioms)
+        s_safety.add(self_var != null_const)  # 仅在 self 有效时讨论约束语义
+        s_safety.add(Not(And(*gt_safety)))  # 尝试寻找违反安全条件的模型 (即触发 Invalid 的路径)
+
+        # 如果 Z3 找到了使 GT 不安全的模型，说明 GT 自身存在 Null/Invalid 解引用
+        if s_safety.check() == sat:
+            return {
+                "result": "INCOMPARABLE",
+                "score": 0.0,
+                "weakened_counterexample": None,
+                "strengthened_counterexample": None,
+                "compilation_error": "Unsafe GT: Ground Truth contains potential null/invalid dereference. Equivalence is semantically undefined."
+            }
 
     # 终极收口：将顶层残留安全条件合取注入
     if gt_safety:

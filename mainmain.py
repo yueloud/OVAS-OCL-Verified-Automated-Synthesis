@@ -1,4 +1,5 @@
 import json
+import csv
 import os
 import re
 import time
@@ -120,7 +121,7 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
             print("✅ 语义校验通过！AST 逻辑无懈可击。")
 
             # === 第二道防线：Z3 可编译性校验 ===
-            print("🛡️ 开始进行 Z3 可编译性校验...")
+            print("🛡️ 开始进行 Z3 可编译性校验...", flush=True)
             is_z3_ok, z3_error = check_z3_translatable(
                 target_constraint.expression, env.uml_context, context_class
             )
@@ -130,7 +131,7 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
             print("✅ Z3 编译校验通过！AST 结构完全可形式化。")
 
             # === 第三道防线：Z3 等价性校验与反例驱动自愈 (CEGAR) ===
-            print("⚖️ 开始进行 Z3 语义等价性评估...")
+            print("⚖️ 开始进行 Z3 语义等价性评估...", flush=True)
             gt_constraint = OCLConstraint(**gt_ast_data)
             gt_expr = gt_constraint.expression
             llm_expr = validated_doc.constraints[0].expression
@@ -273,11 +274,15 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
 
 registry = MetamodelRegistry("benchmark_v5.json")
 
+
 def main():
     print("🚀 启动 OCL AST 批量生成与验证流水线...")
     output_dir = "results"
-    error_log_file = "failed_cases.txt"
+    error_log_file = os.path.join(output_dir, "failed_cases.txt")
+    summary_path = os.path.join(output_dir, "evaluation_summary.csv")
     os.makedirs(output_dir, exist_ok=True)
+
+    summary_records = []
 
     for case_key, case_data in registry.data.items():
         model_name = case_data.get("Model_Name", "UnknownModel")
@@ -292,32 +297,33 @@ def main():
                 print(f"⚠️ 跳过 {constraint_name}: 暂无 NL 需求")
                 continue
 
-            # 获取 Ground Truth
             gt_ast_data = constraint_info.get("Ground_Truth_AST")
             if not gt_ast_data:
                 print(f"⚠️ 跳过 {constraint_name}: 缺少 Ground_Truth_AST")
                 continue
 
-            # 安全的文件路径构造
             safe_model = sanitize_filename(model_name)
             safe_constraint = sanitize_filename(constraint_name)
             ast_path = os.path.join(output_dir, f"{safe_model}_{safe_constraint}.json")
-            score_path = os.path.join(output_dir, f"{safe_model}_{safe_constraint}_score.json")
 
-            # ================= 步骤 1: 获取 LLM 生成的 AST =================
             llm_ast_doc = None
+            cached_eq_result = None
+
+            # ================= 步骤 1: 加载缓存或生成 AST =================
             if os.path.exists(ast_path):
-                print(f"⏭️ 发现已有 AST 文件 [{constraint_name}]，直接加载。")
+                print(f"⏭️ 发现已有结果文件 [{constraint_name}]，直接加载。")
                 try:
                     with open(ast_path, "r", encoding="utf-8") as f:
-                        llm_ast_doc = OCLDocument(**json.load(f))
+                        cached_data = json.load(f)
+                        llm_ast_doc = OCLDocument(**cached_data.get("ast", cached_data))
+                        cached_eq_result = cached_data.get("verification_result")
                 except Exception as load_err:
-                    print(f"⚠️ AST 文件损坏，将重新生成: {load_err}")
+                    print(f"⚠️ 文件损坏，将重新生成: {load_err}")
                     llm_ast_doc = None
+                    cached_eq_result = None
 
             if not llm_ast_doc:
                 initial_prompt = build_dynamic_prompt(model_name, uml_context, constraint_name, nl_req)
-                # 健壮提取：直接从 GT 中获取 context_class，而非硬编码解析约束名
                 context_class = gt_ast_data.get("context_class", constraint_name.split('_')[0])
 
                 print(f"\n▶️ 正在生成并校验约束: [{constraint_name}]")
@@ -326,73 +332,60 @@ def main():
                         case_key=case_key,
                         context_class=context_class,
                         initial_prompt=initial_prompt,
-                        gt_ast_data = gt_ast_data,
-                        uml_context = uml_context
+                        gt_ast_data=gt_ast_data,
+                        uml_context=uml_context
                     )
-                    # 稳健的落盘保存
-                    with open(ast_path, "w", encoding="utf-8") as f:
-                        f.write(llm_ast_doc.model_dump_json(indent=2))
-                    print(f"✅ [{constraint_name}] AST 成功入库。")
 
-                    score_data = {
-                        "case_key": case_key,
-                        "model_name": model_name,
-                        "constraint_name": constraint_name,
-                        "result": eq_result_cached["result"],
-                        "score": eq_result_cached["score"],
-                        "weakened_counterexample": eq_result_cached.get("weakened_counterexample"),
-                        "strengthened_counterexample": eq_result_cached.get("strengthened_counterexample")
+                    # 合并落盘
+                    output_data = {
+                        "verification_result": eq_result_cached,
+                        "ast": json.loads(llm_ast_doc.model_dump_json())
                     }
-                    with open(score_path, "w", encoding="utf-8") as f:
-                        f.write(json.dumps(score_data, indent=2, ensure_ascii=False))
-                    continue  #生成且评估完成，直接跳过后续重复评估
+                    with open(ast_path, "w", encoding="utf-8") as f:
+                        json.dump(output_data, f, indent=2, ensure_ascii=False)# type: ignore[arg-type]
+
+                    cached_eq_result = eq_result_cached
+                    print(f"✅ [{constraint_name}] 结果成功入库。")
 
                 except Exception as e:
                     print(f"🚨 放弃生成 [{constraint_name}]: {e}")
                     with open(error_log_file, "a", encoding="utf-8") as f:
                         f.write(f"[{model_name}] {constraint_name} - 生成失败: {str(e)}\n")
+
+                    summary_records.append({
+                        "case_key": case_key,
+                        "constraint_name": constraint_name,
+                        "result": "GENERATION_FAILED",
+                        "score": 0.0
+                    })
                     continue
 
-            # ================= 步骤 2: Z3 语义等价性评估 =================
-            if os.path.exists(score_path):
-                print(f"⏭️ 发现已有分数文件 [{constraint_name}]，跳过评估。")
-                continue
-
-            print(f"⚖️ [{constraint_name}] 开始 Z3 语义等价性评估(针对缓存AST)...")
-            try:
-                gt_constraint = OCLConstraint(**gt_ast_data)
-                gt_expr = gt_constraint.expression
-                llm_expr = llm_ast_doc.constraints[0].expression
-
-                # eq_result 现在是一个字典
-                eq_result = evaluate_constraint(
-                    gt_ast=gt_expr,
-                    llm_ast=llm_expr,
-                    uml_context=uml_context,
-                    context_class=gt_constraint.context_class
-                )
-
-                print(f"🎯 [{constraint_name}] Z3 判定结果: {eq_result['result']} (得分: {eq_result['score']})")
-
-                # 保存分数详情
-                score_data = {
+            # ================= 步骤 2: 汇总数据 =================
+            if cached_eq_result:
+                summary_records.append({
                     "case_key": case_key,
-                    "model_name": model_name,
                     "constraint_name": constraint_name,
-                    "result": eq_result["result"],
-                    "score": eq_result["score"],
-                    "weakened_counterexample": eq_result.get("weakened_counterexample"),
-                    "strengthened_counterexample": eq_result.get("strengthened_counterexample")
-                }
+                    "result": cached_eq_result.get("result", "UNKNOWN"),
+                    "score": cached_eq_result.get("score", 0.0)
+                })
 
-                with open(score_path, "w", encoding="utf-8") as f:
-                    f.write(json.dumps(score_data, indent=2, ensure_ascii=False))
+    # ================= 步骤 3: 写入汇总 CSV 并计算平均分 =================
+    if summary_records:
+        with open(summary_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["case_key", "constraint_name", "result", "score"])# type: ignore[arg-type]
+            writer.writeheader()
+            writer.writerows(summary_records)
 
-            except Exception as z3_err:
-                print(f"🚨 [{constraint_name}] Z3 评估失败: {z3_err}")
-                with open(error_log_file, "a", encoding="utf-8") as f:
-                    f.write(f"[{model_name}] {constraint_name} - Z3评估失败: {str(z3_err)}\n")
+        valid_scores = [r["score"] for r in summary_records if isinstance(r["score"], (int, float))]
+        avg_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
 
+        with open(summary_path, "a", encoding="utf-8", newline="") as f:
+            f.write(f"\nAVERAGE_SCORE,,,{avg_score:.2f}\n")
+
+        print(f"\n📊 评估完成！汇总表已写入: {summary_path}")
+        print(f"📈 全局平均得分: {avg_score:.2f}")
+    else:
+        print("\n⚠️ 未收集到任何评估数据。")
 
 if __name__ == "__main__":
     main()

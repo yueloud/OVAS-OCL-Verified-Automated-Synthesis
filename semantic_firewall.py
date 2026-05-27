@@ -123,7 +123,7 @@ class OCLSemanticChecker:
         return compatibility_map.get(derived_type, {derived_type})
 
     @classmethod
-    def check(cls, expr: OCLExpression, env: 'TypeEnvironment') -> str:
+    def check(cls, expr: OCLExpression, env: 'TypeEnvironment') -> str:# type: ignore[arg-type]
         """递归入口：严格返回推导类型，遇到任何未知直接 raise 拦截"""
         node_type = expr.type
 
