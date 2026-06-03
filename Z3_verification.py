@@ -2,6 +2,7 @@ import re
 import itertools
 from typing import Dict, List, Tuple
 from z3 import *
+from debug_utils import dump_formula, ENABLE_DUMP
 from json_schema import (OCLExpression, PropertyCall, OperationCall, BinaryExpression,
                          IteratorExpression, CollectionOperation, LiteralExpression,
                          IfExpression, UnaryExpression, LetExpression, CollectionLiteral)
@@ -37,6 +38,7 @@ class BoundedMetamodelEncoder:
         self.assoc_funcs: Dict[str, FuncDeclRef] = {}
         self.assoc_meta: Dict[str, Dict] = {}
         self.axioms: List[Any] = []
+        self.sort_to_null: Dict[SortRef, Any] = {}
         self._encode_metamodel()
         self._generate_axioms()
 
@@ -58,6 +60,7 @@ class BoundedMetamodelEncoder:
             dt.declare(f'{class_name.lower()}_null')
             self.sorts[class_name] = dt.create()
             self.null_consts[class_name] = getattr(self.sorts[class_name], f'{class_name.lower()}_null')
+            self.sort_to_null[self.sorts[class_name]] = self.null_consts[class_name]
 
         for class_name, cls_info in self.uml_context.items():
             sort = self.sorts[class_name]
@@ -140,8 +143,9 @@ class BoundedMetamodelEncoder:
 
     def get_valid_instances(self, class_name: str) -> List[Any]:
         sort = self.sorts[class_name]
-        # 零参数构造器：getattr 返回的已是 DatatypeRef 实例，不需要再调用 ()
-        return [getattr(sort, f'{class_name.lower()}_{i}') for i in range(self.scope)]
+        instances = [getattr(sort, f'{class_name.lower()}_{i}') for i in range(self.scope)]
+        instances.append(self.null_consts[class_name])  # 核心修复：将 null 哨兵纳入追踪域
+        return instances
 
     def _default_value_for_sort(self, sort_ref):
         """根据 Z3 Sort 返回类型安全的哑值（用于 Sort Mismatch 回退）"""
@@ -170,23 +174,11 @@ class OCLZ3Translator:
         elif node_type == "LiteralExpression":
             return self._handle_literal(ast)
 
-        elif node_type == "PropertyCall":
-            return self._handle_property_call(ast, var_bindings)
-
-        elif node_type == "BinaryExpression":
-            return self._handle_binary_expr(ast, var_bindings)
-
         elif node_type == "UnaryExpression":
             return self._handle_unary_expr(ast, var_bindings)
 
-        elif node_type == "OperationCall":
-            return self._handle_operation_call(ast, var_bindings)
-
-        elif node_type == "IteratorExpression":
-            return self._handle_iterator(ast, var_bindings)
-
-        elif node_type == "CollectionOperation":
-            return self._handle_collection_op(ast, var_bindings)
+        elif node_type == "BinaryExpression":
+            return self._handle_binary_expr(ast, var_bindings)
 
         elif node_type == "IfExpression":
             return self._handle_if_expr(ast, var_bindings)
@@ -194,15 +186,24 @@ class OCLZ3Translator:
         elif node_type == "LetExpression":
             return self._handle_let_expr(ast, var_bindings)
 
-        elif node_type == "TypeCast":
-            return self.translate(ast.expression, var_bindings)
+        elif node_type == "PropertyCall":
+            return self._handle_property_call(ast, var_bindings)
+
+        elif node_type == "OperationCall":
+            return self._handle_operation_call(ast, var_bindings)
 
         elif node_type == "CollectionLiteral":
             return self._handle_collection_literal(ast, var_bindings)
 
+        elif node_type == "IteratorExpression":
+            return self._handle_iterator(ast, var_bindings)
+
+        elif node_type == "CollectionOperation":
+            return self._handle_collection_op(ast, var_bindings)
+
         raise NotImplementedError(f"AST node type not implemented: {node_type}")
 
-    # ---------- LiteralExpression ----------
+    #Basic Expressions
     def _handle_literal(self, ast: LiteralExpression) -> Tuple[Any, List]:
         val = ast.value
         lt = ast.literal_type
@@ -213,145 +214,20 @@ class OCLZ3Translator:
         if lt == "Null": return None, []
         return IntVal(0), []
 
-    # ---------- PropertyCall ----------
-    def _handle_property_call(self, ast: PropertyCall, var_bindings: Dict) -> Tuple[Any, List]:
-        src_result, src_safety = self.translate(ast.source, var_bindings)
+    def _handle_unary_expr(self, ast: UnaryExpression, var_bindings: Dict) -> Tuple[Any, List]:
+        expr, safety = self.translate(ast.expression, var_bindings)
+        if ast.operator == "not":
+            # 终极修复：直接透传 safety，防止 not(invalid) 被错误反转为 True
+            return Not(expr), safety
+        elif ast.operator == "-":
+            return -expr, safety
+        raise NotImplementedError(f"Unary operator: {ast.operator}")
 
-        # 隐式 collect: source 是集合，在其上导航属性
-        if isinstance(src_result, CollectionRef):
-            return self._handle_implicit_collect(src_result, ast.property_name, src_safety)
-
-        src_expr = src_result
-        src_type_name = self._infer_class_name(ast.source, var_bindings)
-        func_key = f"{src_type_name}.{ast.property_name}"
-
-        # 关联导航
-        if func_key in self.me.assoc_funcs:
-            func = self.me.assoc_funcs[func_key]
-            meta = self.me.assoc_meta[func_key]
-
-            # 缺陷 3 修复：Sort Mismatch 检查
-            if src_expr.sort() != func.domain(0):
-                raise ValueError(
-                    f"Z3 Sort Mismatch: Cannot apply {func_key} (domain: {func.domain(0)}) "
-                    f"to source expression of sort {src_expr.sort()}. "
-                    f"This indicates a critical type inference bug in the translator or semantic firewall."
-                )
-            if meta["is_count"]:
-                valid_instances = self.me.get_valid_instances(meta["tgt_class"])
-                return CollectionRef(
-                    root_inst=src_expr, cnt_func=func,
-                    element_class=meta["tgt_class"],
-                    valid_instances=valid_instances,
-                    is_set_semantic=meta.get("is_set_semantic", False)
-                ), src_safety
-            else:
-                result = func(src_expr)
-                tgt_null = self.me.null_consts[meta["tgt_class"]]
-                if not meta["is_mandatory"]:
-                    return result, src_safety + [result != tgt_null]
-                else:
-                    return result, src_safety
-
-        # 属性访问
-        if func_key in self.me.attr_funcs:
-            func = self.me.attr_funcs[func_key]
-
-            # 缺陷 3 修复：Sort Mismatch 检查
-            if src_expr.sort() != func.domain(0):
-                raise ValueError(
-                    f"Z3 Sort Mismatch: Cannot apply {func_key} (domain: {func.domain(0)}) "
-                    f"to source expression of sort {src_expr.sort()}. "
-                    f"This indicates a critical type inference bug in the translator or semantic firewall."
-                )
-
-            return func(src_expr), src_safety
-
-        raise ValueError(f"Unknown property: {func_key}")
-
-    def _handle_implicit_collect(self, coll_ref: CollectionRef, prop_name: str,
-                                 src_safety: List) -> Tuple[Any, List]:
-        if not isinstance(coll_ref, CollectionRef):
-            # 理论上进入此函数的必定是 CollectionRef，如果不是，说明 LLM 在非集合上调用了 ->
-            raise ValueError(
-                f"Semantic Error: Cannot navigate property '{prop_name}' on a non-collection value. Did you mean to use '.' instead of '->'?")
-        """处理隐式 collect：从集合导航属性 (如 self.staff.salary)"""
-        element_class = coll_ref.element_class
-        func_key = f"{element_class}.{prop_name}"
-
-        if func_key in self.me.attr_funcs:
-            return CollectionRef(
-                root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func,
-                element_class=element_class, valid_instances=coll_ref.valid_instances,
-                attr_func=self.me.attr_funcs[func_key],
-                nav_chain=coll_ref.nav_chain,
-                is_set_semantic=False), src_safety
-
-        if func_key in self.me.assoc_funcs:
-            func = self.me.assoc_funcs[func_key]
-            meta = self.me.assoc_meta[func_key]
-
-            if not meta["is_count"]:
-                # 立刻进行目标类型投影，废弃失效的 nav_chain
-                tgt_class = meta["tgt_class"]
-                tgt_instances = self.me.get_valid_instances(tgt_class)
-
-                src_root_inst = coll_ref.root_inst
-
-                def mapped_cnt(root, tgt_elem):
-                    total = IntVal(0)
-                    for src_elem in coll_ref.valid_instances:
-                        nav_val = src_elem
-                        for nav_func in coll_ref.nav_chain:
-                            nav_val = nav_func(nav_val)
-                        nav_val = func(nav_val)
-                        # 修复：使用闭包捕获的 src_root_inst，消除 None 回退
-                        src_cnt = coll_ref.cnt_func(src_root_inst, src_elem)
-                        total = total + If(nav_val == tgt_elem, src_cnt, IntVal(0))
-                    return total
-
-                return CollectionRef(
-                    root_inst=coll_ref.root_inst, cnt_func=mapped_cnt,
-                    element_class=tgt_class, valid_instances=tgt_instances,
-                    nav_chain=[], is_set_semantic=False
-                ), src_safety
-            else:
-                return self._handle_nested_collection(coll_ref, func_key, meta, src_safety)
-
-        raise ValueError(f"Unknown property in implicit collect: {func_key}")
-
-    def _handle_nested_collection(self, parent_ref: CollectionRef,
-                                  func_key: str, meta: Dict, src_safety: List) -> Tuple[Any, List]:
-        """处理嵌套集合 (如 self.rooms.beds)"""
-        sub_cnt_func = self.me.assoc_funcs[func_key]
-        sub_element_class = meta["tgt_class"]
-        sub_valid_instances = self.me.get_valid_instances(sub_element_class)
-
-        prop_root_inst = parent_ref.root_inst
-        def combined_cnt(root, sub_elem):
-            total = IntVal(0)
-            for parent_elem in parent_ref.valid_instances:
-                # 修复漏洞 5：使用闭包捕获的 prop_root_inst
-                parent_cnt = parent_ref.cnt_func(prop_root_inst, parent_elem)
-                sub_cnt = sub_cnt_func(parent_elem, sub_elem)
-                # 修复漏洞 2：线性化乘法消除 NIA
-                max_cnt = 1 if parent_ref.is_set_semantic else self.me.scope
-                total = total + self._linear_multiply(parent_cnt, sub_cnt, max_cnt)
-            return total
-
-        return CollectionRef(
-            root_inst=prop_root_inst, cnt_func=combined_cnt,
-            element_class=sub_element_class,
-            valid_instances=sub_valid_instances,
-            is_set_semantic=False), src_safety
-
-    # ---------- BinaryExpression ----------
     def _handle_binary_expr(self, ast: BinaryExpression, var_bindings: Dict) -> Tuple[Any, List]:
         left, left_safety = self.translate(ast.left, var_bindings)
         right, right_safety = self.translate(ast.right, var_bindings)
         op = ast.operator
 
-        # 铁律 7: 除法的严格评估范式与 OCL Real 提升强制约
         if op == '/':
             if is_int(left): left = ToReal(left)
             if is_int(right): right = ToReal(right)
@@ -360,7 +236,6 @@ class OCLZ3Translator:
         if op in ['+', '-', '*']:
             return self._apply_arithmetic(op, left, right), left_safety + right_safety
 
-        # 关系算子：两边都必须有效（直接相加冒泡）
         if op in ['=', '<>', '<', '<=', '>', '>=']:
             # Int/Real 自动提升必须在 Sort mismatch 检查之前
             if is_real(left) and is_int(right):
@@ -397,17 +272,148 @@ class OCLZ3Translator:
             return Xor(left, right), left_safety + right_safety
         raise NotImplementedError(f"Binary operator not implemented: {op}")
 
-    # ---------- UnaryExpression ----------
-    def _handle_unary_expr(self, ast: UnaryExpression, var_bindings: Dict) -> Tuple[Any, List]:
-        expr, safety = self.translate(ast.expression, var_bindings)
-        if ast.operator == "not":
-            # 终极修复：直接透传 safety，防止 not(invalid) 被错误反转为 True
-            return Not(expr), safety
-        elif ast.operator == "-":
-            return -expr, safety
-        raise NotImplementedError(f"Unary operator: {ast.operator}")
+    def _handle_if_expr(self, ast: IfExpression, var_bindings: Dict) -> Tuple[Any, List]:
+        cond, cond_safety = self.translate(ast.condition, var_bindings)
+        then_expr, then_safety = self.translate(ast.then_expr, var_bindings)
+        else_expr, else_safety = self.translate(ast.else_expr, var_bindings)
 
-    # ---------- OperationCall ----------
+        # 终极修复：条件分支下的安全条件动态选择
+        def combine_s(s_list): return And(*s_list) if s_list else BoolVal(True)
+
+        s_cond = combine_s(cond_safety)
+        s_then = combine_s(then_safety)
+        s_else = combine_s(else_safety)
+
+        combined_safety = And(s_cond, If(cond, s_then, s_else))
+        return If(cond, then_expr, else_expr), [combined_safety]
+
+    def _handle_let_expr(self, ast: LetExpression, var_bindings: Dict) -> Tuple[Any, List]:
+        val_expr, val_safety = self.translate(ast.value, var_bindings)
+        new_bindings = var_bindings.copy()
+        new_bindings[ast.variable.name] = val_expr
+        body_expr, body_safety = self.translate(ast.body, new_bindings)
+        return body_expr, val_safety + body_safety
+
+    #Property & Operation Calls
+    def _handle_property_call(self, ast: PropertyCall, var_bindings: Dict) -> Tuple[Any, List]:
+        src_result, src_safety = self.translate(ast.source, var_bindings)
+
+        if isinstance(src_result, CollectionRef):
+            return self._handle_implicit_collect(src_result, ast.property_name, src_safety)
+
+        src_expr = src_result
+        src_type_name = self._infer_class_name(ast.source, var_bindings)
+        func_key = f"{src_type_name}.{ast.property_name}"
+
+        # === 核心修复：获取源类型的 null 哨兵 ===
+        # 任何对单对象的点号访问（.attr 或 .nav），前提都是源对象不能是 null
+        src_null = self.me.null_consts.get(src_type_name)
+        base_safety = src_safety + ([src_expr != src_null] if src_null is not None else [])
+
+        # 关联导航
+        if func_key in self.me.assoc_funcs:
+            func = self.me.assoc_funcs[func_key]
+            meta = self.me.assoc_meta[func_key]
+
+            if src_expr.sort() != func.domain(0):
+                raise ValueError(...)
+
+            if meta["is_count"]:
+                valid_instances = self.me.get_valid_instances(meta["tgt_class"])
+                # 修复：集合导航源不能为 null (null.staff 是 invalid)
+                return CollectionRef(
+                    root_inst=src_expr, cnt_func=func, element_class=meta["tgt_class"],
+                    valid_instances=valid_instances,
+                    is_set_semantic=meta.get("is_set_semantic", False)
+                ), base_safety
+            else:
+                result = func(src_expr)
+                return result, base_safety
+
+        # 属性访问
+        if func_key in self.me.attr_funcs:
+            func = self.me.attr_funcs[func_key]
+            if src_expr.sort() != func.domain(0):
+                raise ValueError(...)
+            return func(src_expr), base_safety
+
+        raise ValueError(f"Unknown property: {func_key}")
+
+    def _handle_implicit_collect(self, coll_ref: CollectionRef, prop_name: str,
+                                 src_safety: List) -> Tuple[Any, List]:
+        if not isinstance(coll_ref, CollectionRef):
+            # 理论上进入此函数的必定是 CollectionRef，如果不是，说明 LLM 在非集合上调用了 ->
+            raise ValueError(
+                f"Semantic Error: Cannot navigate property '{prop_name}' on a non-collection value. Did you mean to use '.' instead of '->'?")
+        """处理隐式 collect：从集合导航属性 (如 self.staff.salary)"""
+        element_class = coll_ref.element_class
+        func_key = f"{element_class}.{prop_name}"
+
+        if func_key in self.me.attr_funcs:
+            return CollectionRef(
+                root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func,
+                element_class=element_class, valid_instances=coll_ref.valid_instances,
+                attr_func=self.me.attr_funcs[func_key],
+                nav_chain=coll_ref.nav_chain,
+                is_set_semantic=False), src_safety
+
+        if func_key in self.me.assoc_funcs:
+            func = self.me.assoc_funcs[func_key]
+            meta = self.me.assoc_meta[func_key]
+
+            if not meta["is_count"]:
+                # 立刻进行目标类型投影，废弃失效的 nav_chain
+                tgt_class = meta["tgt_class"]
+                tgt_instances = self.me.get_valid_instances(tgt_class)
+                src_root_inst = coll_ref.root_inst
+                null_c = self.me.null_consts.get(coll_ref.element_class)
+
+                def mapped_cnt(root, tgt_elem):
+                    total = IntVal(0)
+                    for src_elem in coll_ref.valid_instances:
+                        if null_c is not None and src_elem.eq(null_c): continue
+                        nav_val = src_elem
+                        for nav_func in coll_ref.nav_chain:
+                            nav_val = nav_func(nav_val)
+                        nav_val = func(nav_val)
+                        src_cnt = coll_ref.cnt_func(src_root_inst, src_elem)
+                        total = total + If(nav_val == tgt_elem, src_cnt, IntVal(0))
+                    return total
+
+                return CollectionRef(
+                    root_inst=coll_ref.root_inst, cnt_func=mapped_cnt,
+                    element_class=tgt_class, valid_instances=tgt_instances,
+                    nav_chain=[], is_set_semantic=False
+                ), src_safety
+            else:
+                return self._handle_nested_collection(coll_ref, func_key, meta, src_safety)
+
+        raise ValueError(f"Unknown property in implicit collect: {func_key}")
+
+    def _handle_nested_collection(self, parent_ref: CollectionRef, func_key: str, meta: Dict, src_safety: List) -> \
+    Tuple[Any, List]:
+        sub_cnt_func = self.me.assoc_funcs[func_key]
+        sub_element_class = meta["tgt_class"]
+        sub_valid_instances = self.me.get_valid_instances(sub_element_class)
+        prop_root_inst = parent_ref.root_inst
+        null_c = self.me.null_consts.get(parent_ref.element_class)  # 获取 null 哨兵
+
+        def combined_cnt(root, sub_elem):
+            total = IntVal(0)
+            for parent_elem in parent_ref.valid_instances:
+                # 核心修复：剔除对 null 的属性导航贡献
+                if null_c is not None and parent_elem.eq(null_c):
+                    continue
+                parent_cnt = parent_ref.cnt_func(prop_root_inst, parent_elem)
+                sub_cnt = sub_cnt_func(parent_elem, sub_elem)
+                max_cnt = 1 if parent_ref.is_set_semantic else self.me.scope
+                total = total + self._linear_multiply(parent_cnt, sub_cnt, max_cnt)
+            return total
+
+        return CollectionRef(
+            root_inst=prop_root_inst, cnt_func=combined_cnt, element_class=sub_element_class,
+            valid_instances=sub_valid_instances, is_set_semantic=False), src_safety  # 恢复使用 src_safety
+
     def _handle_operation_call(self, ast: OperationCall, var_bindings: Dict) -> Tuple[Any, List]:
         op = ast.operation_name
 
@@ -418,12 +424,15 @@ class OCLZ3Translator:
             else:
                 element_class = self._infer_class_name(ast.source, var_bindings)
             valid_instances = self.me.get_valid_instances(element_class)
+
+            # === 核心修复：OCL 语义中 allInstances 绝不包含 null ===
+            null_c = self.me.null_consts.get(element_class)
+            if null_c is not None:
+                valid_instances = [inst for inst in valid_instances if not inst.eq(null_c)]
+
             return CollectionRef(
-                root_inst=None,
-                cnt_func=lambda root, inst: IntVal(1),
-                element_class=element_class,
-                valid_instances=valid_instances,
-                is_set_semantic=True), []
+                root_inst=None, cnt_func=lambda root, inst: IntVal(1), element_class=element_class,
+                valid_instances=valid_instances, is_set_semantic=True), []
 
         # === 第二类：需要翻译 source 的操作 ===
         src_expr, src_safety = self.translate(ast.source, var_bindings)
@@ -446,8 +455,6 @@ class OCLZ3Translator:
 
         if op == "abs":
             return If(src_expr < 0, -src_expr, src_expr), src_safety
-        if op == "oclAsType":
-            return src_expr, src_safety
         if op == "oclIsKindOf":
             return BoolVal(True), src_safety
         if op == "toString":
@@ -455,8 +462,37 @@ class OCLZ3Translator:
 
         raise NotImplementedError(f"Operation not implemented: {op}")
 
-    # ---------- IteratorExpression ----------
-    # ---------- IteratorExpression ----------
+    #Collection
+    def _handle_collection_literal(self, ast: CollectionLiteral, var_bindings: Dict) -> Tuple[Any, List]:
+        elements = []
+        literal_safety = []
+        for elem in ast.elements:
+            elem_expr, elem_safety = self.translate(elem, var_bindings)
+            elements.append(elem_expr)
+            literal_safety.extend(elem_safety)
+
+        if ast.collection_kind == "Set":
+            unique_elements = []
+            seen_keys = set()
+            for elem_expr in elements:
+                # 1. 归一化：消除代数/语法差异
+                normalized = simplify(elem_expr)
+                # 2. 防碰撞哈希键：融合代数表示与底层 Sort
+                key = f"{str(normalized)}:{normalized.sort()}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    # 优化：直接保留化简后的 AST，降低 SMT 求解器负担
+                    unique_elements.append(normalized)
+            elements = unique_elements
+
+        def literal_cnt(root, inst):
+            return IntVal(1)
+
+        return CollectionRef(
+            root_inst=None, cnt_func=literal_cnt,
+            element_class="Unknown", valid_instances=elements,
+            is_set_semantic=(ast.collection_kind == "Set")), literal_safety
+
     def _handle_iterator(self, ast: IteratorExpression, var_bindings: Dict) -> Tuple[Any, List]:
         coll_ref, coll_safety = self._resolve_collection_source(ast.source, var_bindings)
         element_class = coll_ref.element_class
@@ -481,9 +517,9 @@ class OCLZ3Translator:
             for inst in coll_ref.valid_instances:
                 body_val, body_safety_ref = self._eval_body_with_var(
                     ast.body, iter_var_name, inst, element_class, var_bindings)
-                accumulated_body_safety.append(body_safety_ref)
-
                 in_set = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
+                accumulated_body_safety.append(Implies(in_set, body_safety_ref))
+
                 if ast.iterator_type == "forAll":
                     results.append(Implies(in_set, body_val))
                 elif ast.iterator_type == "exists":
@@ -506,7 +542,8 @@ class OCLZ3Translator:
             for inst in coll_ref.valid_instances:
                 body_val, body_safety_ref = self._eval_body_with_var(
                     ast.body, iter_var_name, inst, element_class, var_bindings)
-                accumulated_body_safety.append(body_safety_ref)
+                in_set = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
+                accumulated_body_safety.append(Implies(in_set, body_safety_ref))
                 body_vals[inst] = body_val
 
             filter_root_inst = coll_ref.root_inst
@@ -532,11 +569,9 @@ class OCLZ3Translator:
         # ========== collect ==========
         elif ast.iterator_type == "collect":
             for inst in coll_ref.valid_instances:
-                _, body_safety_ref = self._eval_body_with_var(
-                    ast.body, iter_var_name, inst, element_class, var_bindings)
-                accumulated_body_safety.append(body_safety_ref)
+                pass
 
-            final_safety = coll_safety + accumulated_body_safety
+            final_safety = coll_safety
             return CollectionRef(
                 root_inst=coll_ref.root_inst,
                 cnt_func=coll_ref.cnt_func,
@@ -563,13 +598,11 @@ class OCLZ3Translator:
                 in_set_conditions = []
                 for var_name, inst in zip(iter_vars, inst_tuple):
                     in_set_conditions.append(coll_ref.cnt_func(coll_ref.root_inst, inst) > 0)
-
                 in_set = And(*in_set_conditions) if len(in_set_conditions) > 1 else in_set_conditions[0]
 
                 body_val, body_safety_ref = self._eval_body_with_vars(
                     ast.body, iter_vars, inst_tuple, element_class, var_bindings)
-
-                accumulated_body_safety.append(body_safety_ref)
+                accumulated_body_safety.append(Implies(in_set, body_safety_ref))
 
                 if iter_type == "forAll":
                     results.append(Implies(in_set, body_val))
@@ -589,9 +622,14 @@ class OCLZ3Translator:
             tuples = list(itertools.product(coll_ref.valid_instances, repeat=n_vars))
             body_vals = {}
             for t in tuples:
+                in_set_conditions = []
+                for var_name, inst in zip(iter_vars, t):
+                    in_set_conditions.append(coll_ref.cnt_func(coll_ref.root_inst, inst) > 0)
+                in_set = And(*in_set_conditions) if len(in_set_conditions) > 1 else in_set_conditions[0]
+
                 body_val, body_safety_ref = self._eval_body_with_vars(
                     ast.body, iter_vars, t, element_class, var_bindings)
-                accumulated_body_safety.append(body_safety_ref)
+                accumulated_body_safety.append(Implies(in_set, body_safety_ref))
                 body_vals[t] = body_val
 
             pair_constraints = []
@@ -624,7 +662,8 @@ class OCLZ3Translator:
         for inst in instances:
             body_val, body_safety_ref = self._eval_body_with_var(
                 ast.body, iter_var_name, inst, element_class, var_bindings)
-            accumulated_body_safety.append(body_safety_ref)
+            in_set = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
+            accumulated_body_safety.append(Implies(in_set, body_safety_ref))
             body_vals[inst] = body_val
 
         for i, inst1 in enumerate(instances):
@@ -640,43 +679,48 @@ class OCLZ3Translator:
         final_safety = coll_safety + accumulated_body_safety
         return And(*pair_constraints), final_safety
 
-    def _eval_body_with_var(self, body_ast, var_name, inst, element_class, var_bindings):
-        new_bindings = var_bindings.copy()
-        new_bindings[var_name] = inst
-        new_bindings[var_name + "_type"] = element_class
-        body_expr, body_safety = self.translate(body_ast, new_bindings)
-
-        # 关键修复：不再在此处合并 safety，而是原样返回，交由迭代器统一处理
-        combined_safety = And(*body_safety) if body_safety else BoolVal(True)
-        if is_bool(body_expr):
-            return And(combined_safety, body_expr), combined_safety
-        else:
-            return body_expr, combined_safety
-
-    def _eval_body_with_vars(self, body_ast, var_names, inst_tuple, element_class, var_bindings):
-        new_bindings = var_bindings.copy()
-        for var_name, inst in zip(var_names, inst_tuple):
-            new_bindings[var_name] = inst
-            new_bindings[var_name + "_type"] = element_class
-
-        body_expr, body_safety = self.translate(body_ast, new_bindings)
-
-        # 关键修复：不再在此处合并 safety，而是原样返回，交由迭代器统一处理
-        combined_safety = And(*body_safety) if body_safety else BoolVal(True)
-
-        # 只有当 body 是布尔表达式时，才用 safety 条件做 And 守卫
-        # 如果 body 是算术/对象表达式（如 collect 体中的 t.amount），
-        # And(BoolRef, ArithRef) 会触发 Z3 类型坍塌
-        if is_bool(body_expr):
-            return And(combined_safety, body_expr), combined_safety
-        else:
-            return body_expr, combined_safety
-
-    # ---------- CollectionOperation ----------
     def _handle_collection_op(self, ast: CollectionOperation, var_bindings: Dict) -> Tuple[Any, List]:
 
         op = ast.operation_type
         coll_ref, coll_safety = self._resolve_collection_source(ast.source, var_bindings)
+
+        def _get_actual_val_for_coll(target_coll: CollectionRef, inst, accumulated_safety, cnt_val):
+            """返回 (值, 是否有效的Z3布尔表达式)"""
+            if target_coll.attr_func is None:
+                return inst, BoolVal(True)
+            if isinstance(target_coll.attr_func, tuple) and target_coll.attr_func[0] == "collect_body":
+                _, body_ast, var_name, elem_class, saved_bindings = target_coll.attr_func
+                body_val, body_safety = self._eval_body_with_var(body_ast, var_name, inst, elem_class, saved_bindings)
+                # 核心修复：返回 body_safety 作为有效性标记
+                return body_val, body_safety
+            elif callable(target_coll.attr_func):
+                nav_val = inst
+                is_valid = BoolVal(True)
+                for nav_func in target_coll.nav_chain:
+                    null_c = self.me.sort_to_null.get(nav_val.sort())
+                    if null_c is not None:
+                        is_valid = And(is_valid, nav_val != null_c)
+                    nav_val = nav_func(nav_val)
+                null_c = self.me.sort_to_null.get(nav_val.sort())
+                if null_c is not None:
+                    is_valid = And(is_valid, nav_val != null_c)
+                # 核心修复：任何一环为 null 则整体 invalid
+                return target_coll.attr_func(nav_val), is_valid
+            return inst, BoolVal(True)
+
+        def _safe_eq(left, right):
+            """安全的 Z3 等价性比较，防止 Int/Real Sort Mismatch"""
+            if is_real(left) and is_int(right):
+                right = ToReal(right)
+            elif is_int(left) and is_real(right):
+                left = ToReal(left)
+            if left.sort() != right.sort():
+                raise ValueError(
+                    f"Z3 Sort Mismatch in collection element comparison: "
+                    f"{left.sort()} vs {right.sort()}. "
+                    f"This indicates a type inference bug bypassed the semantic firewall."
+                )
+            return left == right
 
         if op == "size":
             return self._compute_size(coll_ref), coll_safety
@@ -691,19 +735,26 @@ class OCLZ3Translator:
         if op == "includes":
             if ast.arguments:
                 arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
-                membership = Or(*[And(coll_ref.cnt_func(coll_ref.root_inst, inst) > 0, inst == arg_expr)
-                                  for inst in coll_ref.valid_instances])
-                return membership, coll_safety + arg_safety
-            raise ValueError("includes operation requires an argument")
+                conds = []
+                for inst in coll_ref.valid_instances:
+                    base_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
+                    actual_val, is_valid = _get_actual_val_for_coll(coll_ref, inst, arg_safety, base_cnt)
+                    effective_cnt = If(is_valid, base_cnt, IntVal(0))  # 剔除 invalid
+                    conds.append(And(effective_cnt > 0, _safe_eq(actual_val, arg_expr)))
+
+                return Or(*conds) if conds else BoolVal(False), coll_safety + arg_safety
 
         if op == "excludes":
             if ast.arguments:
                 arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
-                non_membership = And(*[
-                    Implies(coll_ref.cnt_func(coll_ref.root_inst, inst) > 0, inst != arg_expr)
-                    for inst in coll_ref.valid_instances])
-                return non_membership, coll_safety + arg_safety
-            raise ValueError("excludes operation requires an argument")
+                conds = []
+                for inst in coll_ref.valid_instances:
+                    base_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
+                    actual_val, is_valid = _get_actual_val_for_coll(coll_ref, inst, arg_safety, base_cnt)
+                    effective_cnt = If(is_valid, base_cnt, IntVal(0))  # 剔除 invalid
+                    conds.append(Implies(effective_cnt > 0, Not(_safe_eq(actual_val, arg_expr))))
+
+                return And(*conds) if conds else BoolVal(True), coll_safety + arg_safety
 
         if op == "asSet":
             return CollectionRef(
@@ -729,46 +780,90 @@ class OCLZ3Translator:
         if op == "count":
             if ast.arguments:
                 arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
-                cnt_terms = [
-                    If(inst == arg_expr, coll_ref.cnt_func(coll_ref.root_inst, inst), IntVal(0))
-                    for inst in coll_ref.valid_instances
-                ]
+                cnt_terms = []
+                for inst in coll_ref.valid_instances:
+                    base_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
+                    actual_val, is_valid = _get_actual_val_for_coll(coll_ref, inst, arg_safety, base_cnt)
+                    effective_cnt = If(is_valid, base_cnt, IntVal(0))  # 剔除 invalid
+                    cnt_terms.append(If(_safe_eq(actual_val, arg_expr), effective_cnt, IntVal(0)))
+
                 total = Sum(*cnt_terms) if cnt_terms else IntVal(0)
                 return total, coll_safety + arg_safety
 
-        if op == "includesAll":
-            if ast.arguments:
-                arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
-                if not isinstance(arg_expr, CollectionRef):
-                    raise ValueError(
-                        "Semantic Error: includesAll requires a collection as argument, "
-                        f"but got a scalar value of type {arg_expr.sort()}."
-                    )
-                conds = []
-                for inst in arg_expr.valid_instances:
-                    arg_cnt = arg_expr.cnt_func(arg_expr.root_inst, inst)
-                    coll_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
-                    conds.append(coll_cnt >= arg_cnt)
-                return And(*conds), coll_safety + arg_safety
-            raise ValueError("includesAll operation requires an argument")
 
-        if op == "excludesAll":
-            if ast.arguments:
-                arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
-                # 修复：防御性隔离，确保参数是集合而非标量
-                if not isinstance(arg_expr, CollectionRef):
-                    raise ValueError(
-                        "Semantic Error: excludesAll requires a collection as argument, "
-                        f"but got a scalar value of type {arg_expr.sort()}."
-                    )
-                conds = []
-                for inst in arg_expr.valid_instances:
-                    in_arg = arg_expr.cnt_func(arg_expr.root_inst, inst) > 0
-                    in_coll = coll_ref.cnt_func(coll_ref.root_inst, inst) > 0
-                    conds.append(Not(And(in_arg, in_coll)))
-                return And(*conds), coll_safety + arg_safety
+        if op in ["includesAll", "excludesAll"]:
+            if not ast.arguments:
+                raise ValueError(f"{op} operation requires an argument")
+            arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
+            if not isinstance(arg_expr, CollectionRef):
+                raise ValueError(f"Semantic Error: {op} requires a collection as argument.")
 
-            raise ValueError("excludesAll operation requires an argument")
+            # === 核心修复：预求值与缓存 (Pre-computation & Caching) ===
+            # 1. 以 O(N + M) 复杂度独立完成两侧集合真实值的提取
+            # 2. 正确且仅一次地将所有深层闭包的 safety 条件冒泡至对应的 coll_safety / arg_safety
+
+            coll_actuals = {}
+            coll_is_valid = {}
+            for coll_inst in coll_ref.valid_instances:
+                coll_cnt = coll_ref.cnt_func(coll_ref.root_inst, coll_inst)
+                actual_val, is_valid = _get_actual_val_for_coll(coll_ref, coll_inst, coll_safety, coll_cnt)
+                coll_actuals[coll_inst] = actual_val
+                coll_is_valid[coll_inst] = is_valid
+
+            arg_actuals = {}
+            arg_is_valid = {}
+            for arg_inst in arg_expr.valid_instances:
+                arg_cnt = arg_expr.cnt_func(arg_expr.root_inst, arg_inst)
+                actual_val, is_valid = _get_actual_val_for_coll(arg_expr, arg_inst, arg_safety, arg_cnt)
+                arg_actuals[arg_inst] = actual_val
+                arg_is_valid[arg_inst] = is_valid
+            conds = []
+
+            # ==========================================
+            if op == "includesAll":
+                for arg_inst in arg_expr.valid_instances:
+                    arg_actual = arg_actuals[arg_inst]
+
+                    # 1. 计算该真实值在参数集合中的总频数
+                    arg_match_terms = []
+                    for inner_arg in arg_expr.valid_instances:
+                        inner_actual = arg_actuals[inner_arg]
+                        inner_cnt = arg_expr.cnt_func(arg_expr.root_inst, inner_arg)
+                        effective_inner_cnt = If(arg_is_valid[inner_arg], inner_cnt, IntVal(0))
+                        arg_match_terms.append(If(_safe_eq(inner_actual, arg_actual), effective_inner_cnt, IntVal(0)))
+                    total_arg_cnt = Sum(*arg_match_terms) if arg_match_terms else IntVal(0)
+
+                    # 2. 计算该真实值在主集合中的总频数
+                    coll_match_terms = []
+                    for coll_inst in coll_ref.valid_instances:
+                        coll_actual = coll_actuals[coll_inst]
+                        coll_cnt = coll_ref.cnt_func(coll_ref.root_inst, coll_inst)
+                        effective_coll_cnt = If(coll_is_valid[coll_inst], coll_cnt, IntVal(0))
+                        coll_match_terms.append(If(_safe_eq(coll_actual, arg_actual), effective_coll_cnt, IntVal(0)))
+                    total_coll_cnt = Sum(*coll_match_terms) if coll_match_terms else IntVal(0)
+
+                    # 3. 包含断言：主频数 >= 参数频数
+                    conds.append(total_coll_cnt >= total_arg_cnt)
+
+                return And(*conds) if conds else BoolVal(True), coll_safety + arg_safety
+
+            # ==========================================
+            elif op == "excludesAll":
+                for arg_inst in arg_expr.valid_instances:
+                    arg_actual = arg_actuals[arg_inst]
+                    arg_cnt = arg_expr.cnt_func(arg_expr.root_inst, arg_inst)
+
+                    coll_match_terms = []
+                    for coll_inst in coll_ref.valid_instances:
+                        coll_actual = coll_actuals[coll_inst]
+                        coll_cnt = coll_ref.cnt_func(coll_ref.root_inst, coll_inst)
+                        coll_match_terms.append(If(_safe_eq(coll_actual, arg_actual), coll_cnt, IntVal(0)))
+                    total_coll_cnt = Sum(*coll_match_terms) if coll_match_terms else IntVal(0)
+
+                    # 排斥断言：参数中存在的实例，在主集合的映射频数必须为 0
+                    conds.append(Implies(arg_cnt > 0, total_coll_cnt == 0))
+
+                return And(*conds) if conds else BoolVal(True), coll_safety + arg_safety
 
         if op in ["union", "intersection"]:
             if not ast.arguments:
@@ -890,6 +985,44 @@ class OCLZ3Translator:
 
         raise NotImplementedError(f"Collection operation not implemented: {op}")
 
+    #Tools
+    def _eval_body_with_var(self, body_ast, var_name, inst, element_class, var_bindings):
+        new_bindings = var_bindings.copy()
+        new_bindings[var_name] = inst
+        new_bindings[var_name + "_type"] = element_class
+        body_expr, body_safety = self.translate(body_ast, new_bindings)
+
+        # 关键修复：不再将 safety 乘入 body_expr！
+        # 闭包求值若触发 invalid，让 combined_safety 冒泡即可，body_expr 保留原值（作为无意义的垃圾值被外层忽略）
+        combined_safety = And(*body_safety) if body_safety else BoolVal(True)
+
+        return body_expr, combined_safety
+
+    def _eval_body_with_vars(self, body_ast, var_names, inst_tuple, element_class, var_bindings):
+        new_bindings = var_bindings.copy()
+        for var_name, inst in zip(var_names, inst_tuple):
+            new_bindings[var_name] = inst
+            new_bindings[var_name + "_type"] = element_class
+        body_expr, body_safety = self.translate(body_ast, new_bindings)
+
+        # 关键修复：彻底分离 value 和 safety
+        combined_safety = And(*body_safety) if body_safety else BoolVal(True)
+
+        return body_expr, combined_safety
+
+    def _resolve_collection_source(self, source_ast, var_bindings) -> Tuple[CollectionRef, List]:
+        src_result, coll_safety = self.translate(source_ast, var_bindings)
+        if isinstance(src_result, CollectionRef):
+            return src_result, coll_safety
+        src_type_name = "Unknown"
+        if hasattr(src_result, 'sort'):
+            src_type_name = str(src_result.sort())
+        raise ValueError(
+            f"Semantic Error: Arrow operator (->) used on a non-collection value ({src_type_name}). "
+            f"Use dot syntax (.) for single objects. "
+            f"AST Source Type: {source_ast.type}"
+        )
+
     def _compute_size(self, coll_ref: CollectionRef) -> Any:
         terms = []
         for inst in coll_ref.valid_instances:
@@ -906,23 +1039,24 @@ class OCLZ3Translator:
         if isinstance(attr_func, tuple) and attr_func[0] == "collect_body":
             _, body_ast, var_name, elem_class, saved_bindings = attr_func
             terms = []
-            sum_safety_acc = []  # 收集 sum 内部的 safety
+            sum_safety_acc = []
             for inst in coll_ref.valid_instances:
                 cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
                 body_val, body_safety_ref = self._eval_body_with_var(body_ast, var_name, inst, elem_class,
                                                                      saved_bindings)
-                sum_safety_acc.append(body_safety_ref)  # 冒泡收集
+
                 if not (is_int(body_val) or is_real(body_val)):
-                    raise ValueError(
-                        "Z3 Compilation Error: ->sum() requires numeric values, but ->collect() "
-                        "returned a non-numeric type. Ensure the collect body evaluates to Integer or Real."
-                    )
+                    raise ValueError("Z3 Compilation Error: ->sum() requires numeric values...")
 
                 max_cnt = 1 if coll_ref.is_set_semantic else self.me.scope
-                term = self._linear_multiply(cnt, body_val, max_cnt)
+                # 核心修复：若闭包体 invalid，有效计数降为 0（即剔除），而非爆炸
+                valid_multiplier = If(body_safety_ref, IntVal(1), IntVal(0))
+                safe_cnt = cnt * valid_multiplier
+                term = self._linear_multiply(safe_cnt, body_val, max_cnt)
                 terms.append(term)
 
-            return Sum(*terms) if terms else IntVal(0), sum_safety_acc  # 返回收集的 safety
+                # 修复：不再追加 Implies(cnt > 0, body_safety_ref)，invalid 被静默剔除
+            return Sum(*terms) if terms else IntVal(0), sum_safety_acc
 
         # 然后再检查 callable（FuncDeclRef）
         if not callable(attr_func):
@@ -933,93 +1067,26 @@ class OCLZ3Translator:
 
         # 正常的 FuncDeclRef 路径
         terms = []
+        sum_safety_acc = []
         for inst in coll_ref.valid_instances:
             cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
             nav_val = inst
             for nav_func in coll_ref.nav_chain:
-                if not callable(nav_func):
-                    raise RuntimeError(
-                        f"Z3 Translator Internal Error: non-callable in nav_chain: {type(nav_func).__name__}"
-                    )
+                if not callable(nav_func): raise RuntimeError(...)
                 nav_val = nav_func(nav_val)
+
             attr_val = attr_func(nav_val)
-            # 确定当前集合的 cnt 上界
             max_cnt = 1 if coll_ref.is_set_semantic else self.me.scope
-            term = self._linear_multiply(cnt, attr_val, max_cnt)
+
+            # 核心修复：剔除 invalid 而非爆炸
+            null_c = self.me.sort_to_null.get(nav_val.sort())
+            if null_c is not None:
+                term = If(nav_val != null_c, self._linear_multiply(cnt, attr_val, max_cnt), IntVal(0))
+            else:
+                term = self._linear_multiply(cnt, attr_val, max_cnt)
             terms.append(term)
+        return Sum(*terms) if terms else IntVal(0), sum_safety_acc
 
-        return Sum(*terms) if terms else IntVal(0), []
-
-    # ---------- 集合源解析 ----------
-    def _resolve_collection_source(self, source_ast, var_bindings) -> Tuple[CollectionRef, List]:
-        src_result, coll_safety = self.translate(source_ast, var_bindings)
-        if isinstance(src_result, CollectionRef):
-            return src_result, coll_safety
-        src_type_name = "Unknown"
-        if hasattr(src_result, 'sort'):
-            src_type_name = str(src_result.sort())
-        raise ValueError(
-            f"Semantic Error: Arrow operator (->) used on a non-collection value ({src_type_name}). "
-            f"Use dot syntax (.) for single objects. "
-            f"AST Source Type: {source_ast.type}"
-        )
-
-    # ---------- IfExpression ----------
-    def _handle_if_expr(self, ast: IfExpression, var_bindings: Dict) -> Tuple[Any, List]:
-        cond, cond_safety = self.translate(ast.condition, var_bindings)
-        then_expr, then_safety = self.translate(ast.then_expr, var_bindings)
-        else_expr, else_safety = self.translate(ast.else_expr, var_bindings)
-
-        # 终极修复：条件分支下的安全条件动态选择
-        def combine_s(s_list): return And(*s_list) if s_list else BoolVal(True)
-
-        s_cond = combine_s(cond_safety)
-        s_then = combine_s(then_safety)
-        s_else = combine_s(else_safety)
-
-        combined_safety = And(s_cond, If(cond, s_then, s_else))
-        return If(cond, then_expr, else_expr), [combined_safety]
-
-    # ---------- LetExpression ----------
-    def _handle_let_expr(self, ast: LetExpression, var_bindings: Dict) -> Tuple[Any, List]:
-        val_expr, val_safety = self.translate(ast.value, var_bindings)
-        new_bindings = var_bindings.copy()
-        new_bindings[ast.variable.name] = val_expr
-        body_expr, body_safety = self.translate(ast.body, new_bindings)
-        return body_expr, val_safety + body_safety
-
-    # ---------- CollectionLiteral ----------
-    def _handle_collection_literal(self, ast: CollectionLiteral, var_bindings: Dict) -> Tuple[Any, List]:
-        elements = []
-        literal_safety = []
-        for elem in ast.elements:
-            elem_expr, elem_safety = self.translate(elem, var_bindings)
-            elements.append(elem_expr)
-            literal_safety.extend(elem_safety)
-
-        if ast.collection_kind == "Set":
-            unique_elements = []
-            seen_keys = set()
-            for elem_expr in elements:
-                # 1. 归一化：消除代数/语法差异
-                normalized = simplify(elem_expr)
-                # 2. 防碰撞哈希键：融合代数表示与底层 Sort
-                key = f"{str(normalized)}:{normalized.sort()}"
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    # 优化：直接保留化简后的 AST，降低 SMT 求解器负担
-                    unique_elements.append(normalized)
-            elements = unique_elements
-
-        def literal_cnt(root, inst):
-            return IntVal(1)
-
-        return CollectionRef(
-            root_inst=None, cnt_func=literal_cnt,
-            element_class="Unknown", valid_instances=elements,
-            is_set_semantic=(ast.collection_kind == "Set")), literal_safety
-
-    # ---------- 类型推导 ----------
     def _infer_class_name(self, ast: OCLExpression, bindings: Dict[str, Any]) -> str:
         if ast.type == "Variable":
             if ast.name == "self":
@@ -1079,9 +1146,6 @@ class OCLZ3Translator:
         elif ast.type == "LiteralExpression":
             return ast.literal_type
 
-        elif ast.type == "TypeCast":
-            return ast.target_type
-
         elif ast.type == "IfExpression":
             return self._infer_class_name(ast.then_expr, bindings)
 
@@ -1107,15 +1171,8 @@ class OCLZ3Translator:
         attr_type = uml_ctx.get("attributes", {}).get(prop_name, "")
         if attr_type:
             return attr_type
-
-        for super_cls in uml_ctx.get("superclasses", []):
-            result = self._get_element_class_name(super_cls, prop_name)
-            if result != "Unknown":
-                return result
-
         return "Unknown"
 
-    # ---------- 算术/关系运算辅助 ----------
     def _apply_arithmetic(self, op, left, right):
         if is_real(left) and is_int(right):
             right = ToReal(right)
@@ -1125,6 +1182,19 @@ class OCLZ3Translator:
         if op == '-': return left - right
         if op == '*': return left * right
         raise NotImplementedError(f"Arithmetic op: {op}")
+
+    def _apply_relational(self, op, left, right):
+        if is_real(left) and is_int(right):
+            right = ToReal(right)
+        elif is_int(left) and is_real(right):
+            left = ToReal(left)
+        if op == '=': return left == right
+        if op == '<>': return left != right
+        if op == '<': return left < right
+        if op == '<=': return left <= right
+        if op == '>': return left > right
+        if op == '>=': return left >= right
+        raise NotImplementedError(f"Relational op: {op}")
 
     def _linear_multiply(self, cnt: Any, val: Any, max_cnt: int) -> Any:
         """
@@ -1157,57 +1227,49 @@ class OCLZ3Translator:
 
         return Sum(*terms)
 
-    def _apply_relational(self, op, left, right):
-        if is_real(left) and is_int(right):
-            right = ToReal(right)
-        elif is_int(left) and is_real(right):
-            left = ToReal(left)
-        if op == '=': return left == right
-        if op == '<>': return left != right
-        if op == '<': return left < right
-        if op == '<=': return left <= right
-        if op == '>': return left > right
-        if op == '>=': return left >= right
-        raise NotImplementedError(f"Relational op: {op}")
-
-
-# ==========================================
 # ==========================================
 # 组件 3 & 4：基于蕴含关系的定性分级判定
 # ==========================================
 
-def check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var) -> dict:
+def check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var, case_key: str, constraint_name: str) -> dict:
     """基于 Z3 蕴含关系判定，返回结构化结果（含反例）"""
     null_const = meta_encoder.null_consts[context_class]
     gt_forall = ForAll([self_var], Implies(self_var != null_const, gt_expr))
     llm_forall = ForAll([self_var], Implies(self_var != null_const, llm_expr))
 
+    dump_formula(case_key, constraint_name, "GT_Quantified_Axiom", gt_forall)
+    dump_formula(case_key, constraint_name, "LLM_Quantified_Axiom", llm_forall)
+
     s = Solver()
     s.add(meta_encoder.axioms)
 
-    # 判定 1: GT 是否蕴含 LLM (弱化检查)
+    # 判定 1: 寻找 LLM 是否排除了 GT 的合法状态 (即 LLM 更严格/强化)
+    # 逻辑条件：GT 成立 且 LLM 不成立
     s.push()
     s.add(gt_forall)
     s.add(Not(llm_forall))
-    is_weakened = (s.check() == sat)
-    weakened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_weakened else None
+    is_llm_stricter = (s.check() == sat)
+    # 修正配套：更严格对应强化反例
+    strengthened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_llm_stricter else None
     s.pop()
 
-    # 判定 2: LLM 是否蕴含 GT (强化检查)
+    # 判定 2: 寻找 LLM 是否放行了 GT 的非法状态 (即 LLM 更宽松/弱化)
+    # 逻辑条件：LLM 成立 且 GT 不成立
     s.push()
     s.add(llm_forall)
     s.add(Not(gt_forall))
-    is_strengthened = (s.check() == sat)
-    strengthened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_strengthened else None
+    is_llm_looser = (s.check() == sat)
+    # 修正配套：更宽松对应弱化反例
+    weakened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_llm_looser else None
     s.pop()
 
     # 定性分级
-    if not is_weakened and not is_strengthened:
+    if not is_llm_stricter and not is_llm_looser:
         result = "EQUIVALENT"
-    elif not is_weakened and is_strengthened:
-        result = "STRENGTHENED"
-    elif is_weakened and not is_strengthened:
-        result = "WEAKENED"
+    elif is_llm_stricter and not is_llm_looser:
+        result = "STRENGTHENED"  # LLM 约束更强，排除了合法状态
+    elif not is_llm_stricter and is_llm_looser:
+        result = "WEAKENED"  # LLM 约束更弱，放行了非法状态
     else:
         result = "INCOMPARABLE"
 
@@ -1221,7 +1283,7 @@ def check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var) 
 # ==========================================
 # 主控流水线
 # ==========================================
-def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_context: dict, context_class: str) -> dict:
+def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_context: dict, context_class: str, case_key: str, constraint_name: str) -> dict:
     """
     评估 GT 与 LLM 约束的等价性，返回包含判定结果、分数和反例的结构化字典。
     """
@@ -1237,14 +1299,11 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_conte
             "compilation_error": err_msg  # 附带编译错误信息供主程序参考
         }
 
-    # 2. 编码元模型
     meta_encoder = BoundedMetamodelEncoder(uml_context, scope=3)
 
-    # 3. self 的 Z3 Const 显式绑定
     self_var = Const("self", meta_encoder.sorts[context_class])
     var_bindings = {"context_class": context_class, "self": self_var}
 
-    # 4. 翻译 AST (经过预检，此处理论上是安全的)
     translator = OCLZ3Translator(meta_encoder)
     gt_expr, gt_safety = translator.translate(gt_ast, var_bindings)
     llm_expr, llm_safety = translator.translate(llm_ast, var_bindings)
@@ -1272,6 +1331,9 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_conte
     if llm_safety:
         llm_expr = And(And(*llm_safety), llm_expr)
 
+    dump_formula(case_key, constraint_name, "GT_Translated_Expr", gt_expr)
+    dump_formula(case_key, constraint_name, "LLM_Translated_Expr", llm_expr)
+
     null_const = meta_encoder.null_consts[context_class]
     s_pre = Solver()
     s_pre.add(meta_encoder.axioms)
@@ -1286,7 +1348,7 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_conte
         }
 
     # 5. 基于蕴含关系的定性分级判定（直接返回字典）
-    return check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var)
+    return check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var,case_key, constraint_name)
 
 def check_z3_translatable(llm_ast: OCLExpression, uml_context: dict, context_class: str) -> tuple:
     try:

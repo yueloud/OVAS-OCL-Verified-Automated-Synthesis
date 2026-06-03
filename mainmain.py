@@ -8,7 +8,7 @@ from json_schema import OCLDocument, OCLConstraint
 from Z3_verification import evaluate_constraint, check_z3_translatable
 from utils import call_llm_structured
 from config import MAX_RETRIES
-from semantic_firewall import MetamodelRegistry, TypeEnvironment, OCLSemanticChecker, SemanticError
+from semantic_checker import MetamodelRegistry, TypeEnvironment, OCLSemanticChecker, SemanticError
 
 SYSTEM_INSTRUCTION = """
 You are a formal methods expert and a strict OCL AST compiler. Your task is to translate natural language specifications into a strictly structured OCL Abstract Syntax Tree (AST) based on the provided UML metamodel.
@@ -74,7 +74,7 @@ def sanitize_filename(name: str) -> str:
     return re.sub(r'_+', '_', clean_name) # 合并连续的下划线
 
 
-def generate_ast_with_reflexion(case_key: str, context_class: str, initial_prompt: str, gt_ast_data: dict,
+def generate_ast_with_reflexion(case_key: str, context_class: str, constraint_name: str, initial_prompt: str, gt_ast_data: dict,
                                 uml_context: dict) -> tuple[OCLDocument, dict]:
     current_prompt = initial_prompt
     attempt = 0
@@ -141,7 +141,9 @@ def generate_ast_with_reflexion(case_key: str, context_class: str, initial_promp
                     gt_ast=gt_expr,
                     llm_ast=llm_expr,
                     uml_context=uml_context,
-                    context_class=context_class
+                    context_class=context_class,
+                    case_key = case_key,
+                    constraint_name = constraint_name
                 )
             except Exception as eval_err:
                 # 如果等价性评估期间发生Z3内部异常，当作编译错误处理
@@ -331,6 +333,7 @@ def main():
                     llm_ast_doc, eq_result_cached = generate_ast_with_reflexion(
                         case_key=case_key,
                         context_class=context_class,
+                        constraint_name=constraint_name,
                         initial_prompt=initial_prompt,
                         gt_ast_data=gt_ast_data,
                         uml_context=uml_context
