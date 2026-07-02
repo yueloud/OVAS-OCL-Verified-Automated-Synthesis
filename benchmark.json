@@ -3,14 +3,12 @@
     "Model_Name": "CompanyModel",
     "UML_Context": {
       "Company": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "employees": "Set(Employee)"
         }
       },
       "Employee": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "salary": "Real",
@@ -23,6 +21,7 @@
     },
     "Constraints": {
       "Employee_PositiveSalary": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "an employee's salary must always be a strictly positive value.",
         "Ground_Truth_OCL": "self.salary > 0",
         "Ground_Truth_AST": {
@@ -48,6 +47,7 @@
         }
       },
       "Employee_AdultAge": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "every employee must be an adult, meaning their age must be strictly greater than 18.",
         "Ground_Truth_OCL": "self.age > 18",
         "Ground_Truth_AST": {
@@ -78,7 +78,6 @@
     "Model_Name": "CivilStatus",
     "UML_Context": {
       "Person": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "gender": "String",
@@ -92,24 +91,29 @@
     },
     "Constraints": {
       "Person_MaleHusband": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "if a person is associated with a husband, that person must be female.",
-        "Ground_Truth_OCL": "self.husband.isDefined() implies self.gender = 'female'",
+        "Ground_Truth_OCL": "not self.husband.oclIsUndefined() implies self.gender = 'female'",
         "Ground_Truth_AST": {
           "context_class": "Person",
           "stereotype": "inv",
           "expression": {
             "type": "BinaryExpression",
             "left": {
-              "type": "OperationCall",
-              "source": {
-                "type": "PropertyCall",
+              "type": "UnaryExpression",
+              "operator": "not",
+              "expression": {
+                "type": "OperationCall",
                 "source": {
-                  "type": "Variable",
-                  "name": "self"
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "husband"
                 },
-                "property_name": "husband"
-              },
-              "operation_name": "isDefined"
+                "operation_name": "oclIsUndefined"
+              }
             },
             "operator": "implies",
             "right": {
@@ -133,24 +137,29 @@
         }
       },
       "Person_FemaleWife": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "if a person is associated with a wife, that person must be male.",
-        "Ground_Truth_OCL": "self.wife.isDefined() implies self.gender = 'male'",
+        "Ground_Truth_OCL": "not self.wife.oclIsUndefined() implies self.gender = 'male'",
         "Ground_Truth_AST": {
           "context_class": "Person",
           "stereotype": "inv",
           "expression": {
             "type": "BinaryExpression",
             "left": {
-              "type": "OperationCall",
-              "source": {
-                "type": "PropertyCall",
+              "type": "UnaryExpression",
+              "operator": "not",
+              "expression": {
+                "type": "OperationCall",
                 "source": {
-                  "type": "Variable",
-                  "name": "self"
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "wife"
                 },
-                "property_name": "wife"
-              },
-              "operation_name": "isDefined"
+                "operation_name": "oclIsUndefined"
+              }
             },
             "operator": "implies",
             "right": {
@@ -174,8 +183,9 @@
         }
       },
       "Person_SpouseIsMarried": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "if a person has a recorded spouse (either a husband or a wife), their civil status must be explicitly set to 'married'.",
-        "Ground_Truth_OCL": "(self.husband.isDefined() or self.wife.isDefined()) implies self.civstat = 'married'",
+        "Ground_Truth_OCL": "(not self.husband.oclIsUndefined() or not self.wife.oclIsUndefined()) implies self.civstat = 'married'",
         "Ground_Truth_AST": {
           "context_class": "Person",
           "stereotype": "inv",
@@ -184,29 +194,37 @@
             "left": {
               "type": "BinaryExpression",
               "left": {
-                "type": "OperationCall",
-                "source": {
-                  "type": "PropertyCall",
+                "type": "UnaryExpression",
+                "operator": "not",
+                "expression": {
+                  "type": "OperationCall",
                   "source": {
-                    "type": "Variable",
-                    "name": "self"
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "husband"
                   },
-                  "property_name": "husband"
-                },
-                "operation_name": "isDefined"
+                  "operation_name": "oclIsUndefined"
+                }
               },
               "operator": "or",
               "right": {
-                "type": "OperationCall",
-                "source": {
-                  "type": "PropertyCall",
+                "type": "UnaryExpression",
+                "operator": "not",
+                "expression": {
+                  "type": "OperationCall",
                   "source": {
-                    "type": "Variable",
-                    "name": "self"
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "wife"
                   },
-                  "property_name": "wife"
-                },
-                "operation_name": "isDefined"
+                  "operation_name": "oclIsUndefined"
+                }
               }
             },
             "operator": "implies",
@@ -236,7 +254,6 @@
     "Model_Name": "CarRental",
     "UML_Context": {
       "Car": {
-        "superclasses": [],
         "attributes": {
           "regno": "String"
         },
@@ -245,7 +262,6 @@
         }
       },
       "Rental": {
-        "superclasses": [],
         "attributes": {
           "fromDate": "Integer",
           "untilDate": "Integer"
@@ -257,6 +273,7 @@
     },
     "Constraints": {
       "Rental_CheckDates": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "the from date of a rental must always occur strictly before its until date,representing the rental period formatted strictly as YYYYMMDD.",
         "Ground_Truth_OCL": "self.fromDate < self.untilDate",
         "Ground_Truth_AST": {
@@ -290,7 +307,6 @@
     "Model_Name": "Department",
     "UML_Context": {
       "Dept": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "budget": "Integer"
@@ -300,7 +316,6 @@
         }
       },
       "Employee": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "salary": "Integer"
@@ -312,6 +327,7 @@
     },
     "Constraints": {
       "Dept_BudgetConstraint": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "a department's allocated budget is always greater than or equal to the sum of the salaries of all employees currently working within that department.",
         "Ground_Truth_OCL": "self.budget >= self.staff.salary->sum()",
         "Ground_Truth_AST": {
@@ -342,12 +358,13 @@
                 },
                 "property_name": "salary"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             }
           }
         }
       },
       "Dept_MinStaff": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "every department is required to have at least one employee assigned to it.",
         "Ground_Truth_OCL": "self.staff->size() >= 1",
         "Ground_Truth_AST": {
@@ -365,13 +382,79 @@
                 },
                 "property_name": "staff"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": ">=",
             "right": {
               "type": "LiteralExpression",
               "value": 1,
               "literal_type": "Integer"
+            }
+          }
+        }
+      },
+      "Dept_AverageSalary": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "The average salary of employees in a department must not exceed 80000.",
+        "Ground_Truth_OCL": "self.staff->notEmpty() implies self.staff.salary->sum() / self.staff->size() <= 80000",
+        "Ground_Truth_AST": {
+          "context_class": "Dept",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "staff"
+              },
+              "operation_name": "notEmpty"
+            },
+            "operator": "implies",
+            "right": {
+              "type": "BinaryExpression",
+              "left": {
+                "type": "BinaryExpression",
+                "left": {
+                  "type": "CollectionOperation",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "PropertyCall",
+                      "source": {
+                        "type": "Variable",
+                        "name": "self"
+                      },
+                      "property_name": "staff"
+                    },
+                    "property_name": "salary"
+                  },
+                  "operation_name": "sum"
+                },
+                "operator": "/",
+                "right": {
+                  "type": "CollectionOperation",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "staff"
+                  },
+                  "operation_name": "size"
+                }
+              },
+              "operator": "<=",
+              "right": {
+                "type": "LiteralExpression",
+                "value": 80000,
+                "literal_type": "Integer"
+              }
             }
           }
         }
@@ -382,7 +465,6 @@
     "Model_Name": "Graph",
     "UML_Context": {
       "Node": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "outEdges": "Set(Edge)",
@@ -390,7 +472,6 @@
         }
       },
       "Edge": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "source": "Node[1..1]",
@@ -400,6 +481,7 @@
     },
     "Constraints": {
       "Edge_NoBidirectionalSelfLoop": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Node must not have any Edge that serves as both an incoming and an outgoing edge simultaneously (this prevents direct self-loops).",
         "Ground_Truth_OCL": "self.outEdges->intersection(self.inEdges)->isEmpty()",
         "Ground_Truth_AST": {
@@ -417,7 +499,7 @@
                 },
                 "property_name": "outEdges"
               },
-              "operation_type": "intersection",
+              "operation_name": "intersection",
               "arguments": [
                 {
                   "type": "PropertyCall",
@@ -429,11 +511,12 @@
                 }
               ]
             },
-            "operation_type": "isEmpty"
+            "operation_name": "isEmpty"
           }
         }
       },
       "Edge_NoSelfLoop": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "the source node of any given edge must always be distinct from its target node.",
         "Ground_Truth_OCL": "self.source <> self.target",
         "Ground_Truth_AST": {
@@ -460,6 +543,75 @@
             }
           }
         }
+      },
+      "Node_EdgeBagVsSet": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "The total number of edge references of a node, counted with multiplicity (each shared edge counted once for outgoing and once for incoming), must be at least the count of distinct edges.",
+        "Ground_Truth_OCL": "self.outEdges->asBag()->union(self.inEdges)->size() >= self.outEdges->union(self.inEdges)->size()",
+        "Ground_Truth_AST": {
+          "context_class": "Node",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "CollectionOperation",
+                "source": {
+                  "type": "CollectionOperation",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "outEdges"
+                  },
+                  "operation_name": "asBag"
+                },
+                "operation_name": "union",
+                "arguments": [
+                  {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "inEdges"
+                  }
+                ]
+              },
+              "operation_name": "size"
+            },
+            "operator": ">=",
+            "right": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "CollectionOperation",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "outEdges"
+                },
+                "operation_name": "union",
+                "arguments": [
+                  {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "inEdges"
+                  }
+                ]
+              },
+              "operation_name": "size"
+            }
+          }
+        }
       }
     }
   },
@@ -467,7 +619,6 @@
     "Model_Name": "RoyalAndLoyal",
     "UML_Context": {
       "Customer": {
-        "superclasses": [],
         "attributes": {
           "age": "Integer",
           "male": "Boolean"
@@ -477,7 +628,6 @@
         }
       },
       "LoyaltyProgram": {
-        "superclasses": [],
         "attributes": {
           "name": "String"
         },
@@ -486,7 +636,6 @@
         }
       },
       "LoyaltyAccount": {
-        "superclasses": [],
         "attributes": {
           "points": "Integer"
         },
@@ -498,6 +647,7 @@
     },
     "Constraints": {
       "LoyaltyAccount_AdultMembership": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A customer must be at least 18 years old to enroll in a program.",
         "Ground_Truth_OCL": "self.owner.age >= 18",
         "Ground_Truth_AST": {
@@ -527,6 +677,7 @@
         }
       },
       "LoyaltyAccount_NoNegativePoints": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The points in any loyalty account cannot be negative.",
         "Ground_Truth_OCL": "self.points >= 0",
         "Ground_Truth_AST": {
@@ -552,6 +703,7 @@
         }
       },
       "LoyaltyAccount_MaleProgram": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": " If a customer is enrolled in a program, and the program's name is 'MaleProgram', then the customer must be male.",
         "Ground_Truth_OCL": "(self.program.name = 'MaleProgram') implies (self.owner.male = true)",
         "Ground_Truth_AST": {
@@ -611,7 +763,6 @@
     "Model_Name": "ProjectSystem",
     "UML_Context": {
       "Employee": {
-        "superclasses": [],
         "attributes": {
           "salary": "Integer"
         },
@@ -620,7 +771,6 @@
         }
       },
       "Project": {
-        "superclasses": [],
         "attributes": {
           "budget": "Integer"
         },
@@ -631,6 +781,7 @@
     },
     "Constraints": {
       "Project_BudgetSufficiency": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Project's budget must be sufficient to cover the salaries of all employees working on it. Specifically, the project budget must be greater than or equal to the sum of salaries of its assigned employees.",
         "Ground_Truth_OCL": "self.budget >= self.members.salary->sum()",
         "Ground_Truth_AST": {
@@ -661,7 +812,7 @@
                 },
                 "property_name": "salary"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             }
           }
         }
@@ -672,7 +823,6 @@
     "Model_Name": "PolygonSystem",
     "UML_Context": {
       "Point": {
-        "superclasses": [],
         "attributes": {
           "x": "Integer",
           "y": "Integer"
@@ -682,7 +832,6 @@
         }
       },
       "Polygon": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "points": "Set(Point)"
@@ -691,6 +840,7 @@
     },
     "Constraints": {
       "Polygon_NoThreeConsecutiveCollinear": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "For any three distinct points in a polygon (p1, p2, p3), they must not be collinear (on the same line). This ensures the polygon has a valid shape without any redundant vertices.",
         "Ground_Truth_OCL": "self.points->forAll(p1, p2, p3 | (p1 <> p2 and p2 <> p3 and p1 <> p3) implies (p2.x - p1.x)*(p3.y - p1.y) <> (p2.y - p1.y)*(p3.x - p1.x))",
         "Ground_Truth_AST": {
@@ -707,7 +857,7 @@
               "property_name": "points"
             },
             "iterator_type": "forAll",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "p1"
@@ -870,7 +1020,6 @@
     "Model_Name": "CompanySystem",
     "UML_Context": {
       "Employee": {
-        "superclasses": [],
         "attributes": {
           "salary": "Integer"
         },
@@ -882,6 +1031,7 @@
     },
     "Constraints": {
       "Employee_NoSelfManager": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "An employee cannot be their own manager.",
         "Ground_Truth_OCL": "self.manager <> self",
         "Ground_Truth_AST": {
@@ -906,6 +1056,7 @@
         }
       },
       "Employee_ManagerSalary": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A manager's salary must be strictly greater than the salary of any of their subordinates. ",
         "Ground_Truth_OCL": "self.subordinates->forAll(s | s.salary < self.salary)",
         "Ground_Truth_AST": {
@@ -922,7 +1073,7 @@
               "property_name": "subordinates"
             },
             "iterator_type": "forAll",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "s"
@@ -950,6 +1101,63 @@
             }
           }
         }
+      },
+      "Employee_SalaryCeiling": {
+        "Complexity_Category": "Single Navigation",
+        "Input_NL_Requirement": "An employee's salary ceiling is their manager's salary if they report to a manager; otherwise, it is 500000 (the executive maximum). The employee's salary must not exceed this ceiling.",
+        "Ground_Truth_OCL": "self.salary <= if not self.manager.oclIsUndefined() then self.manager.salary else 500000 endif",
+        "Ground_Truth_AST": {
+          "context_class": "Employee",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "PropertyCall",
+              "source": {
+                "type": "Variable",
+                "name": "self"
+              },
+              "property_name": "salary"
+            },
+            "operator": "<=",
+            "right": {
+              "type": "IfExpression",
+              "condition": {
+                "type": "UnaryExpression",
+                "operator": "not",
+                "expression": {
+                  "type": "OperationCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "manager"
+                  },
+                  "operation_name": "oclIsUndefined"
+                }
+              },
+              "then_expression": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "manager"
+                },
+                "property_name": "salary"
+              },
+              "else_expression": {
+                "type": "LiteralExpression",
+                "value": 500000,
+                "literal_type": "Integer"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -957,7 +1165,6 @@
     "Model_Name": "StackSystem",
     "UML_Context": {
       "Stack": {
-        "superclasses": [],
         "attributes": {
           "elements": "Integer"
         },
@@ -966,6 +1173,7 @@
     },
     "Constraints": {
       "Stack_SizeNonNegative": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The number of elements in the stack must always be greater than or equal to zero. It is structurally impossible for a stack to have a negative size. ",
         "Ground_Truth_OCL": "self.elements >= 0",
         "Ground_Truth_AST": {
@@ -996,7 +1204,6 @@
     "Model_Name": "FlightSystem",
     "UML_Context": {
       "Plane": {
-        "superclasses": [],
         "attributes": {
           "capacity": "Integer"
         },
@@ -1005,7 +1212,6 @@
         }
       },
       "Flight": {
-        "superclasses": [],
         "attributes": {
           "departureTime": "Integer",
           "arrivalTime": "Integer"
@@ -1016,7 +1222,6 @@
         }
       },
       "Passenger": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "flight": "Set(Flight)"
@@ -1025,6 +1230,7 @@
     },
     "Constraints": {
       "Flight_ArrivalAfterDeparture": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A flight's arrivalTime must be strictly greater than its departureTime.",
         "Ground_Truth_OCL": "self.arrivalTime > self.departureTime",
         "Ground_Truth_AST": {
@@ -1053,6 +1259,7 @@
         }
       },
       "Flight_CapacityCheck": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The number of passengers booked on a flight must not exceed the capacity of the assigned plane.",
         "Ground_Truth_OCL": "self.passengers->size() <= self.plane.capacity",
         "Ground_Truth_AST": {
@@ -1070,7 +1277,7 @@
                 },
                 "property_name": "passengers"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -1087,6 +1294,77 @@
             }
           }
         }
+      },
+      "Flight_CapacityUtilization": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "A flight's capacity utilization ratio (passenger count divided by plane capacity) must not exceed 0.9, ensuring at least 10% of seats remain available for operational flexibility.",
+        "Ground_Truth_OCL": "self.plane.capacity > 0 implies self.passengers->size() / self.plane.capacity <= 0.9",
+        "Ground_Truth_AST": {
+          "context_class": "Flight",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "BinaryExpression",
+              "left": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "plane"
+                },
+                "property_name": "capacity"
+              },
+              "operator": ">",
+              "right": {
+                "type": "LiteralExpression",
+                "value": 0,
+                "literal_type": "Integer"
+              }
+            },
+            "operator": "implies",
+            "right": {
+              "type": "BinaryExpression",
+              "left": {
+                "type": "BinaryExpression",
+                "left": {
+                  "type": "CollectionOperation",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "passengers"
+                  },
+                  "operation_name": "size"
+                },
+                "operator": "/",
+                "right": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "plane"
+                  },
+                  "property_name": "capacity"
+                }
+              },
+              "operator": "<=",
+              "right": {
+                "type": "LiteralExpression",
+                "value": 0.9,
+                "literal_type": "Real"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -1094,14 +1372,12 @@
     "Model_Name": "SudokuSystem",
     "UML_Context": {
       "Row": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "cells": "Set(Cell)"
         }
       },
       "Cell": {
-        "superclasses": [],
         "attributes": {
           "value": "Integer"
         },
@@ -1112,6 +1388,7 @@
     },
     "Constraints": {
       "Cell_ValueRange": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The value of any cell must be an integer between 1 and 9 (inclusive).",
         "Ground_Truth_OCL": "self.value >= 1 and self.value <= 9",
         "Ground_Truth_AST": {
@@ -1158,6 +1435,7 @@
         }
       },
       "Row_UniqueValues": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "All cells belonging to the same Row must have unique values. No two cells in a row can share the same number.",
         "Ground_Truth_OCL": "self.cells->isUnique(value)",
         "Ground_Truth_AST": {
@@ -1174,7 +1452,7 @@
               "property_name": "cells"
             },
             "iterator_type": "isUnique",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "v"
@@ -1197,7 +1475,6 @@
     "Model_Name": "LibrarySystem",
     "UML_Context": {
       "Member": {
-        "superclasses": [],
         "attributes": {
           "fine": "Real"
         },
@@ -1206,7 +1483,6 @@
         }
       },
       "Book": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "borrower": "Member[0..1]"
@@ -1215,6 +1491,7 @@
     },
     "Constraints": {
       "Member_MaxBooks": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A member cannot have more than 5 books borrowed at any given time.",
         "Ground_Truth_OCL": "self.borrowedBooks->size() <= 5",
         "Ground_Truth_AST": {
@@ -1232,7 +1509,7 @@
                 },
                 "property_name": "borrowedBooks"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -1244,6 +1521,7 @@
         }
       },
       "Member_NoLoanIfFined": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": " If a member has a fine greater than 0, they are blocked from borrowing. This means if fine > 0, their list of borrowed books must be empty (or they must return all books before having a fine).",
         "Ground_Truth_OCL": "self.fine > 0 implies self.borrowedBooks->isEmpty()",
         "Ground_Truth_AST": {
@@ -1279,7 +1557,7 @@
                 },
                 "property_name": "borrowedBooks"
               },
-              "operation_type": "isEmpty"
+              "operation_name": "isEmpty"
             }
           }
         }
@@ -1290,25 +1568,18 @@
     "Model_Name": "VehicleSystem",
     "UML_Context": {
       "Vehicle": {
-        "superclasses": [],
         "attributes": {
           "regNo": "String"
         },
         "associations": {}
       },
       "Car": {
-        "superclasses": [
-          "Vehicle"
-        ],
         "attributes": {
           "doors": "Integer"
         },
         "associations": {}
       },
       "Truck": {
-        "superclasses": [
-          "Vehicle"
-        ],
         "attributes": {
           "maxLoad": "Integer"
         },
@@ -1317,6 +1588,7 @@
     },
     "Constraints": {
       "Car_DoorLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Car must have between 2 and 5 doors (inclusive).",
         "Ground_Truth_OCL": "self.doors >= 2 and self.doors <= 5",
         "Ground_Truth_AST": {
@@ -1363,6 +1635,7 @@
         }
       },
       "Truck_LoadLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Truck must be heavy-duty, meaning its maxLoad must be greater than 1000 kg.",
         "Ground_Truth_OCL": "self.maxLoad > 1000",
         "Ground_Truth_AST": {
@@ -1393,7 +1666,6 @@
     "Model_Name": "CinemaSystem",
     "UML_Context": {
       "Hall": {
-        "superclasses": [],
         "attributes": {
           "capacity": "Integer"
         },
@@ -1402,7 +1674,6 @@
         }
       },
       "Show": {
-        "superclasses": [],
         "attributes": {},
         "associations": {
           "hall": "Hall[1..1]",
@@ -1410,7 +1681,6 @@
         }
       },
       "Ticket": {
-        "superclasses": [],
         "attributes": {
           "seatNo": "Integer"
         },
@@ -1421,6 +1691,7 @@
     },
     "Constraints": {
       "Show_CapacityLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The number of tickets sold for a show must not exceed the capacity of the hall where it is screened.",
         "Ground_Truth_OCL": "self.tickets->size() <= self.hall.capacity",
         "Ground_Truth_AST": {
@@ -1438,7 +1709,7 @@
                 },
                 "property_name": "tickets"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -1457,6 +1728,7 @@
         }
       },
       "Show_UniqueSeats": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "Every ticket for a specific show must have a unique seatNo. No double booking of seats is allowed.",
         "Ground_Truth_OCL": "self.tickets->isUnique(seatNo)",
         "Ground_Truth_AST": {
@@ -1473,7 +1745,7 @@
               "property_name": "tickets"
             },
             "iterator_type": "isUnique",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "t"
@@ -1496,7 +1768,6 @@
     "Model_Name": "SmartClimate",
     "UML_Context": {
       "Building": {
-        "superclasses": [],
         "attributes": {
           "maxPowerCapacity": "Integer"
         },
@@ -1505,7 +1776,6 @@
         }
       },
       "Room": {
-        "superclasses": [],
         "attributes": {
           "name": "String"
         },
@@ -1517,7 +1787,6 @@
         }
       },
       "Thermostat": {
-        "superclasses": [],
         "attributes": {
           "currentTemp": "Real",
           "targetTemp": "Real"
@@ -1527,7 +1796,6 @@
         }
       },
       "Window": {
-        "superclasses": [],
         "attributes": {
           "isOpen": "Boolean"
         },
@@ -1536,7 +1804,6 @@
         }
       },
       "HVACUnit": {
-        "superclasses": [],
         "attributes": {
           "isHeating": "Boolean",
           "isCooling": "Boolean",
@@ -1550,6 +1817,7 @@
     },
     "Constraints": {
       "Thermostat_ValidTargetTemp": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Thermostat's target temperature must always be between 16 and 30 degrees Celsius.",
         "Ground_Truth_OCL": "self.targetTemp >= 16 and self.targetTemp <= 30",
         "Ground_Truth_AST": {
@@ -1596,6 +1864,7 @@
         }
       },
       "Thermostat_PhysicsCheck": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The current temperature measured by a Thermostat cannot be lower than absolute zero (-273 degrees).",
         "Ground_Truth_OCL": "self.currentTemp >= -273",
         "Ground_Truth_AST": {
@@ -1621,6 +1890,7 @@
         }
       },
       "HVACUnit_ModeConflict": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "An HVACUnit cannot be in both \"heating\" and \"cooling\" modes simultaneously.",
         "Ground_Truth_OCL": "not (self.isHeating and self.isCooling)",
         "Ground_Truth_AST": {
@@ -1653,6 +1923,7 @@
         }
       },
       "Room_WindowOpenHVACStatus": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a Window in a Room is currently open, the HVACUnit assigned to that room must be turned off (active status is false) to save energy.",
         "Ground_Truth_OCL": "self.windows->exists(w | w.isOpen) implies (self.hvac.isActive = false)",
         "Ground_Truth_AST": {
@@ -1671,7 +1942,7 @@
                 "property_name": "windows"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "w"
@@ -1712,6 +1983,7 @@
         }
       },
       "Building_MaxPowerLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total power consumption of all active HVACUnits in the Building must not exceed the Building's maximum power capacity.",
         "Ground_Truth_OCL": "self.rooms.hvac->select(h | h.isActive).powerUsage->sum() <= self.maxPowerCapacity",
         "Ground_Truth_AST": {
@@ -1738,7 +2010,7 @@
                     "property_name": "hvac"
                   },
                   "iterator_type": "select",
-                  "iterator_variables": [
+                  "iterators": [
                     {
                       "type": "Variable",
                       "name": "h"
@@ -1755,7 +2027,7 @@
                 },
                 "property_name": "powerUsage"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             },
             "operator": "<=",
             "right": {
@@ -1770,6 +2042,7 @@
         }
       },
       "Room_SafetyEgress": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "Every Room must have at least one window installed for safety.",
         "Ground_Truth_OCL": "self.windows->size() >= 1",
         "Ground_Truth_AST": {
@@ -1787,7 +2060,7 @@
                 },
                 "property_name": "windows"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": ">=",
             "right": {
@@ -1799,6 +2072,7 @@
         }
       },
       "Room_AutoActivation": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If the Thermostat detects a temperature difference (gap between current and target) greater than 5 degrees, the HVACUnit must be active.",
         "Ground_Truth_OCL": "(self.stat.currentTemp - self.stat.targetTemp).abs() > 5 implies self.hvac.isActive",
         "Ground_Truth_AST": {
@@ -1869,7 +2143,6 @@
     "Model_Name": "IoTSecurity",
     "UML_Context": {
       "SecurityHub": {
-        "superclasses": [],
         "attributes": {
           "isAlertState": "Boolean",
           "currentYear": "Integer"
@@ -1879,7 +2152,6 @@
         }
       },
       "Zone": {
-        "superclasses": [],
         "attributes": {
           "isArmed": "Boolean",
           "requiredLevel": "Integer"
@@ -1891,7 +2163,6 @@
         }
       },
       "Sensor": {
-        "superclasses": [],
         "attributes": {
           "type": "String",
           "isTriggered": "Boolean",
@@ -1902,7 +2173,6 @@
         }
       },
       "User": {
-        "superclasses": [],
         "attributes": {
           "name": "String"
         },
@@ -1911,7 +2181,6 @@
         }
       },
       "KeyCard": {
-        "superclasses": [],
         "attributes": {
           "accessLevel": "Integer",
           "expiryYear": "Integer"
@@ -1923,82 +2192,8 @@
       }
     },
     "Constraints": {
-      "SecurityHub_SingletonHub": {
-        "Input_NL_Requirement": "There must be exactly one SecurityHub instance in the entire system.",
-        "Ground_Truth_OCL": "SecurityHub.allInstances()->size() = 1",
-        "Ground_Truth_AST": {
-          "context_class": "SecurityHub",
-          "stereotype": "inv",
-          "expression": {
-            "type": "BinaryExpression",
-            "left": {
-              "type": "CollectionOperation",
-              "source": {
-                "type": "OperationCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "SecurityHub"
-                },
-                "operation_name": "allInstances"
-              },
-              "operation_type": "size"
-            },
-            "operator": "=",
-            "right": {
-              "type": "LiteralExpression",
-              "value": 1,
-              "literal_type": "Integer"
-            }
-          }
-        }
-      },
-      "KeyCard_NotExpired": {
-        "Input_NL_Requirement": "A KeyCard is only valid if its expiration year is strictly greater than the current year of every SecurityHub in the system (assuming a singleton context).",
-        "Ground_Truth_OCL": "SecurityHub.allInstances()->forAll(hub | self.expiryYear > hub.currentYear)",
-        "Ground_Truth_AST": {
-          "context_class": "KeyCard",
-          "stereotype": "inv",
-          "expression": {
-            "type": "IteratorExpression",
-            "source": {
-              "type": "OperationCall",
-              "source": {
-                "type": "Variable",
-                "name": "SecurityHub"
-              },
-              "operation_name": "allInstances"
-            },
-            "iterator_type": "forAll",
-            "iterator_variables": [
-              {
-                "type": "Variable",
-                "name": "hub"
-              }
-            ],
-            "body": {
-              "type": "BinaryExpression",
-              "left": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "self"
-                },
-                "property_name": "expiryYear"
-              },
-              "operator": ">",
-              "right": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "hub"
-                },
-                "property_name": "currentYear"
-              }
-            }
-          }
-        }
-      },
       "User_MaxCards": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A User cannot hold more than 3 distinct KeyCards.",
         "Ground_Truth_OCL": "self.cards->size() <= 3",
         "Ground_Truth_AST": {
@@ -2016,7 +2211,7 @@
                 },
                 "property_name": "cards"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -2028,6 +2223,7 @@
         }
       },
       "SecurityHub_IntrusionAlert": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a Sensor is \"triggered\" (detecting intrusion) and the Zone is \"armed,\" the SecurityHub must be in an \"Alert\" state.",
         "Ground_Truth_OCL": "self.zones->exists(z | z.isArmed and z.sensors->exists(s | s.isTriggered)) implies self.isAlertState",
         "Ground_Truth_AST": {
@@ -2046,7 +2242,7 @@
                 "property_name": "zones"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "z"
@@ -2074,7 +2270,7 @@
                     "property_name": "sensors"
                   },
                   "iterator_type": "exists",
-                  "iterator_variables": [
+                  "iterators": [
                     {
                       "type": "Variable",
                       "name": "s"
@@ -2104,6 +2300,7 @@
         }
       },
       "Zone_SecureBeforeArming": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Zone cannot be set to \"armed\" if any of its contact sensors are currently open (e.g., a door is ajar).",
         "Ground_Truth_OCL": "self.sensors->exists(s | s.type = 'contact' and s.isOpen) implies self.isArmed = false",
         "Ground_Truth_AST": {
@@ -2122,7 +2319,7 @@
                 "property_name": "sensors"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "s"
@@ -2180,6 +2377,7 @@
         }
       },
       "KeyCard_AccessLevelCheck": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "Users can only enter a Zone if their KeyCard has an access level greater than or equal to the Zone's required security level.",
         "Ground_Truth_OCL": "self.authorizedZones->forAll(z | self.accessLevel >= z.requiredLevel)",
         "Ground_Truth_AST": {
@@ -2196,7 +2394,7 @@
               "property_name": "authorizedZones"
             },
             "iterator_type": "forAll",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "z"
@@ -2226,6 +2424,7 @@
         }
       },
       "SecurityHub_NonNegativeTriggers": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The SecurityHub must track the total number of triggered sensors; this count cannot be negative.",
         "Ground_Truth_OCL": "self.zones.sensors->select(s | s.isTriggered)->size() >= 0",
         "Ground_Truth_AST": {
@@ -2250,7 +2449,7 @@
                   "property_name": "sensors"
                 },
                 "iterator_type": "select",
-                "iterator_variables": [
+                "iterators": [
                   {
                     "type": "Variable",
                     "name": "s"
@@ -2265,7 +2464,7 @@
                   "property_name": "isTriggered"
                 }
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": ">=",
             "right": {
@@ -2282,7 +2481,6 @@
     "Model_Name": "SmartMicrogrid",
     "UML_Context": {
       "Controller": {
-        "superclasses": [],
         "attributes": {
           "islandMode": "Boolean"
         },
@@ -2294,7 +2492,6 @@
         }
       },
       "GridConnection": {
-        "superclasses": [],
         "attributes": {
           "isDown": "Boolean",
           "importAmount": "Real",
@@ -2305,7 +2502,6 @@
         }
       },
       "BatteryBank": {
-        "superclasses": [],
         "attributes": {
           "chargePercent": "Integer"
         },
@@ -2314,7 +2510,6 @@
         }
       },
       "SolarPanel": {
-        "superclasses": [],
         "attributes": {
           "currentOutput": "Real",
           "efficiencyMode": "Real"
@@ -2324,7 +2519,6 @@
         }
       },
       "Appliance": {
-        "superclasses": [],
         "attributes": {
           "priority": "Integer",
           "consumption": "Real",
@@ -2337,6 +2531,7 @@
     },
     "Constraints": {
       "BatteryBank_ValidCharge": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The BatteryBank's charge level is a percentage and must be in the range of 0 to 100 inclusive.",
         "Ground_Truth_OCL": "self.chargePercent >= 0 and self.chargePercent <= 100",
         "Ground_Truth_AST": {
@@ -2383,6 +2578,7 @@
         }
       },
       "Controller_BlackoutProtocol": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If the GridConnection status is \"Down\" (blackout), the Controller must be in \"IslandMode\".",
         "Ground_Truth_OCL": "self.grid.isDown implies self.islandMode = true",
         "Ground_Truth_AST": {
@@ -2424,6 +2620,7 @@
         }
       },
       "SolarPanel_EfficiencyRange": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "Each SolarPanel tracks its efficiency mode, which must be a value between 0.0 and 1.0 inclusive.",
         "Ground_Truth_OCL": "self.efficiencyMode >= 0.0 and self.efficiencyMode <= 1.0",
         "Ground_Truth_AST": {
@@ -2470,6 +2667,7 @@
         }
       },
       "Controller_NonNegativeSolar": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total power output of all SolarPanels must be non-negative.",
         "Ground_Truth_OCL": "self.panels.currentOutput->sum() >= 0",
         "Ground_Truth_AST": {
@@ -2491,7 +2689,7 @@
                 },
                 "property_name": "currentOutput"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             },
             "operator": ">=",
             "right": {
@@ -2502,193 +2700,8 @@
           }
         }
       },
-      "Controller_LowBatteryLoadShedding": {
-        "Input_NL_Requirement": "High-consumption Appliances (priority level < 2) must be turned off if the BatteryBank charge drops below 20% and the Grid is disconnected.",
-        "Ground_Truth_OCL": "(self.battery.chargePercent < 20 and self.grid.isDown) implies (self.loads->select(a | a.priority < 2)->forAll(a | a.isOn = false))",
-        "Ground_Truth_AST": {
-          "context_class": "Controller",
-          "stereotype": "inv",
-          "expression": {
-            "type": "BinaryExpression",
-            "left": {
-              "type": "BinaryExpression",
-              "left": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "Variable",
-                    "name": "self"
-                  },
-                  "property_name": "battery"
-                },
-                "property_name": "chargePercent"
-              },
-              "operator": "<",
-              "right": {
-                "type": "LiteralExpression",
-                "value": 20,
-                "literal_type": "Integer"
-              }
-            },
-            "operator": "and",
-            "right": {
-              "type": "PropertyCall",
-              "source": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "self"
-                },
-                "property_name": "grid"
-              },
-              "property_name": "isDown"
-            }
-          },
-          "operator": "implies",
-          "right": {
-            "type": "IteratorExpression",
-            "source": {
-              "type": "IteratorExpression",
-              "source": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "self"
-                },
-                "property_name": "loads"
-              },
-              "iterator_type": "select",
-              "iterator_variables": [
-                {
-                  "type": "Variable",
-                  "name": "a"
-                }
-              ],
-              "body": {
-                "type": "BinaryExpression",
-                "left": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "Variable",
-                    "name": "a"
-                  },
-                  "property_name": "priority"
-                },
-                "operator": "<",
-                "right": {
-                  "type": "LiteralExpression",
-                  "value": 2,
-                  "literal_type": "Integer"
-                }
-              }
-            },
-            "iterator_type": "forAll",
-            "iterator_variables": [
-              {
-                "type": "Variable",
-                "name": "a"
-              }
-            ],
-            "body": {
-              "type": "BinaryExpression",
-              "left": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "a"
-                },
-                "property_name": "isOn"
-              },
-              "operator": "=",
-              "right": {
-                "type": "LiteralExpression",
-                "value": false,
-                "literal_type": "Boolean"
-              }
-            }
-          }
-        }
-      },
-      "Controller_PowerBalance": {
-        "Input_NL_Requirement": "The system calculates \"NetEnergy\" as (Solar Output + Grid Import). This must be greater than or equal to the total Appliance consumption to avoid brownouts.",
-        "Ground_Truth_OCL": "(self.panels.currentOutput->sum() + self.grid.importAmount) >= (self.loads->select(a | a.isOn).consumption->sum())",
-        "Ground_Truth_AST": {
-          "context_class": "Controller",
-          "stereotype": "inv",
-          "expression": {
-            "type": "BinaryExpression",
-            "left": {
-              "type": "BinaryExpression",
-              "left": {
-                "type": "CollectionOperation",
-                "source": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "PropertyCall",
-                    "source": {
-                      "type": "Variable",
-                      "name": "self"
-                    },
-                    "property_name": "panels"
-                  },
-                  "property_name": "currentOutput"
-                },
-                "operation_type": "sum"
-              },
-              "operator": "+",
-              "right": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "Variable",
-                    "name": "self"
-                  },
-                  "property_name": "grid"
-                },
-                "property_name": "importAmount"
-              }
-            },
-            "operator": ">=",
-            "right": {
-              "type": "CollectionOperation",
-              "source": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "IteratorExpression",
-                  "source": {
-                    "type": "PropertyCall",
-                    "source": {
-                      "type": "Variable",
-                      "name": "self"
-                    },
-                    "property_name": "loads"
-                  },
-                  "iterator_type": "select",
-                  "iterator_variables": [
-                    {
-                      "type": "Variable",
-                      "name": "a"
-                    }
-                  ],
-                  "body": {
-                    "type": "PropertyCall",
-                    "source": {
-                      "type": "Variable",
-                      "name": "a"
-                    },
-                    "property_name": "isOn"
-                  }
-                },
-                "property_name": "consumption"
-              },
-              "operation_type": "sum"
-            }
-          }
-        }
-      },
       "Controller_SolarCurtailment": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If the BatteryBank is fully charged (100%) and the Grid is not exporting energy, every SolarPanel must operate below maximum capacity (efficiency mode < 1.0) to prevent overvoltage.",
         "Ground_Truth_OCL": "(self.battery.chargePercent = 100 and self.grid.isExporting = false) implies (self.panels->forAll(p | p.efficiencyMode < 1.0))",
         "Ground_Truth_AST": {
@@ -2754,7 +2767,7 @@
                 "property_name": "panels"
               },
               "iterator_type": "forAll",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "p"
@@ -2787,7 +2800,6 @@
     "Model_Name": "FreightSystem",
     "UML_Context": {
       "Vessel": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "maxTonnage": "Real",
@@ -2802,7 +2814,6 @@
         }
       },
       "Container": {
-        "superclasses": [],
         "attributes": {
           "weight": "Real",
           "isRefrigerated": "Boolean"
@@ -2814,7 +2825,6 @@
         }
       },
       "HazardousMaterial": {
-        "superclasses": [],
         "attributes": {
           "safetyCertID": "String"
         },
@@ -2823,7 +2833,6 @@
         }
       },
       "Shipment": {
-        "superclasses": [],
         "attributes": {
           "isCleared": "Boolean",
           "departureDate": "Integer",
@@ -2834,7 +2843,6 @@
         }
       },
       "Port": {
-        "superclasses": [],
         "attributes": {
           "totalBerths": "Integer"
         },
@@ -2845,6 +2853,7 @@
     },
     "Constraints": {
       "Vessel_CapacityLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Vessel has a maximum weight capacity (maxTonnage). The sum of the weights of all loaded Containers must not exceed this limit.",
         "Ground_Truth_OCL": "self.cargo.weight->sum() <= self.maxTonnage",
         "Ground_Truth_AST": {
@@ -2866,7 +2875,7 @@
                 },
                 "property_name": "weight"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             },
             "operator": "<=",
             "right": {
@@ -2881,6 +2890,7 @@
         }
       },
       "Container_PositiveWeight": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Container's weight must be strictly positive.",
         "Ground_Truth_OCL": "self.weight > 0",
         "Ground_Truth_AST": {
@@ -2906,6 +2916,7 @@
         }
       },
       "Vessel_ReefersNeedPower": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a Container is marked as \"Refrigerated\", it must be loaded onto a Vessel that supports power supply (hasPowerSupply = true).",
         "Ground_Truth_OCL": "self.cargo->exists(c | c.isRefrigerated) implies self.hasPowerSupply = true",
         "Ground_Truth_AST": {
@@ -2924,7 +2935,7 @@
                 "property_name": "cargo"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "c"
@@ -2961,8 +2972,9 @@
         }
       },
       "Shipment_HazardousClearance": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Shipment cannot be marked as \"Cleared\" by customs if it contains any HazardousMaterial that lacks a safety certificate ID.",
-        "Ground_Truth_OCL": "(self.isCleared and self.boxes.hazards->notEmpty()) implies self.boxes.hazards->forAll(h | h.safetyCertID.isDefined() and h.safetyCertID <> '')",
+        "Ground_Truth_OCL": "(self.isCleared and self.boxes.hazards->notEmpty()) implies self.boxes.hazards->forAll(h | not h.safetyCertID.oclIsUndefined() and h.safetyCertID <> '')",
         "Ground_Truth_AST": {
           "context_class": "Shipment",
           "stereotype": "inv",
@@ -2993,7 +3005,7 @@
                   },
                   "property_name": "hazards"
                 },
-                "operation_type": "notEmpty"
+                "operation_name": "notEmpty"
               }
             },
             "operator": "implies",
@@ -3012,7 +3024,7 @@
                 "property_name": "hazards"
               },
               "iterator_type": "forAll",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "h"
@@ -3021,16 +3033,20 @@
               "body": {
                 "type": "BinaryExpression",
                 "left": {
-                  "type": "OperationCall",
-                  "source": {
-                    "type": "PropertyCall",
+                  "type": "UnaryExpression",
+                  "operator": "not",
+                  "expression": {
+                    "type": "OperationCall",
                     "source": {
-                      "type": "Variable",
-                      "name": "h"
+                      "type": "PropertyCall",
+                      "source": {
+                        "type": "Variable",
+                        "name": "h"
+                      },
+                      "property_name": "safetyCertID"
                     },
-                    "property_name": "safetyCertID"
-                  },
-                  "operation_name": "isDefined"
+                    "operation_name": "oclIsUndefined"
+                  }
                 },
                 "operator": "and",
                 "right": {
@@ -3056,6 +3072,7 @@
         }
       },
       "Vessel_CrewRequirement": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Vessel cannot leave a Port (isDocked = false) if its current crew count is less than the minimum crew requirement.",
         "Ground_Truth_OCL": "self.isDocked = false implies self.crewCount >= self.minCrewReq",
         "Ground_Truth_AST": {
@@ -3105,6 +3122,7 @@
         }
       },
       "Shipment_ValidDates": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The arrival date of a Shipment must be strictly later than its departure date (represented as integers for simulation, e.g., days from epoch).",
         "Ground_Truth_OCL": "self.arrivalDate > self.departureDate",
         "Ground_Truth_AST": {
@@ -3133,6 +3151,7 @@
         }
       },
       "Port_BerthLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Port cannot accommodate more Vessels than its total number of berths.",
         "Ground_Truth_OCL": "self.dockedVessels->size() <= self.totalBerths",
         "Ground_Truth_AST": {
@@ -3150,7 +3169,7 @@
                 },
                 "property_name": "dockedVessels"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -3170,7 +3189,6 @@
     "Model_Name": "InventoryMgmt",
     "UML_Context": {
       "Warehouse": {
-        "superclasses": [],
         "attributes": {
           "isInactive": "Boolean",
           "hasSpecialHandling": "Boolean"
@@ -3181,7 +3199,6 @@
         }
       },
       "Product": {
-        "superclasses": [],
         "attributes": {
           "isFragile": "Boolean",
           "name": "String"
@@ -3191,7 +3208,6 @@
         }
       },
       "StockItem": {
-        "superclasses": [],
         "attributes": {
           "quantity": "Integer",
           "reserved": "Integer"
@@ -3203,7 +3219,6 @@
         }
       },
       "TransferRequest": {
-        "superclasses": [],
         "attributes": {
           "amount": "Integer",
           "status": "String"
@@ -3216,6 +3231,7 @@
     },
     "Constraints": {
       "StockItem_NonNegativeQty": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The quantity of a StockItem cannot be negative.",
         "Ground_Truth_OCL": "self.quantity >= 0",
         "Ground_Truth_AST": {
@@ -3241,6 +3257,7 @@
         }
       },
       "StockItem_ReservationLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The \"reserved\" quantity for any StockItem must be non-negative and must not exceed the total quantity on hand.",
         "Ground_Truth_OCL": "self.reserved >= 0 and self.reserved <= self.quantity",
         "Ground_Truth_AST": {
@@ -3289,7 +3306,57 @@
           }
         }
       },
+      "TransferRequest_ValidStatus": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "A TransferRequest's status must be one of the valid states: 'Pending', 'Approved', 'Completed', or 'Rejected'.",
+        "Ground_Truth_OCL": "Set{'Pending', 'Approved', 'Completed', 'Rejected'}->includes(self.status)",
+        "Ground_Truth_AST": {
+          "context_class": "TransferRequest",
+          "stereotype": "inv",
+          "expression": {
+            "type": "CollectionOperation",
+            "source": {
+              "type": "CollectionLiteral",
+              "collection_kind": "Set",
+              "elements": [
+                {
+                  "type": "LiteralExpression",
+                  "value": "Pending",
+                  "literal_type": "String"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": "Approved",
+                  "literal_type": "String"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": "Completed",
+                  "literal_type": "String"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": "Rejected",
+                  "literal_type": "String"
+                }
+              ]
+            },
+            "operation_name": "includes",
+            "arguments": [
+              {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "status"
+              }
+            ]
+          }
+        }
+      },
       "TransferRequest_NoTransferToInactive": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If a Warehouse is marked as \"Inactive\" (e.g., under maintenance), it cannot be the destination for any new TransferRequests whose status is 'Pending'.",
         "Ground_Truth_OCL": "self.status = 'Pending' implies self.destWarehouse.isInactive = false",
         "Ground_Truth_AST": {
@@ -3340,6 +3407,7 @@
         }
       },
       "TransferRequest_PositiveAmount": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A TransferRequest amount must be greater than zero.",
         "Ground_Truth_OCL": "self.amount > 0",
         "Ground_Truth_AST": {
@@ -3365,6 +3433,7 @@
         }
       },
       "StockItem_FragileStorage": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "Products marked as \"Fragile\" cannot be stored in Warehouses that do not have \"SpecialHandling\" capabilities.",
         "Ground_Truth_OCL": "self.product.isFragile implies self.warehouse.hasSpecialHandling = true",
         "Ground_Truth_AST": {
@@ -3410,6 +3479,7 @@
         }
       },
       "TransferRequest_SufficientFreeStock": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The system calculates \"FreeStock\" as (quantity - reserved). A TransferRequest is only valid if the source StockItem has enough FreeStock to cover the transfer amount.",
         "Ground_Truth_OCL": "self.status = 'Pending' implies (self.sourceItem.quantity - self.sourceItem.reserved) >= self.amount",
         "Ground_Truth_AST": {
@@ -3483,17 +3553,7 @@
   "case_21_E-Commerce Marketplace Order Processing": {
     "Model_Name": "Marketplace",
     "UML_Context": {
-      "User": {
-        "superclasses": [],
-        "attributes": {
-          "username": "String"
-        },
-        "associations": {}
-      },
       "Seller": {
-        "superclasses": [
-          "User"
-        ],
         "attributes": {
           "isBanned": "Boolean"
         },
@@ -3502,9 +3562,6 @@
         }
       },
       "Customer": {
-        "superclasses": [
-          "User"
-        ],
         "attributes": {
           "isVIP": "Boolean"
         },
@@ -3514,7 +3571,6 @@
         }
       },
       "Wallet": {
-        "superclasses": [],
         "attributes": {
           "balance": "Real"
         },
@@ -3523,7 +3579,6 @@
         }
       },
       "Listing": {
-        "superclasses": [],
         "attributes": {
           "price": "Real",
           "stock": "Integer",
@@ -3536,7 +3591,6 @@
         }
       },
       "Order": {
-        "superclasses": [],
         "attributes": {
           "totalPrice": "Real",
           "status": "String",
@@ -3551,7 +3605,6 @@
         }
       },
       "LineItem": {
-        "superclasses": [],
         "attributes": {
           "quantity": "Integer"
         },
@@ -3561,7 +3614,6 @@
         }
       },
       "Coupon": {
-        "superclasses": [],
         "attributes": {
           "minPurchaseReq": "Real"
         },
@@ -3572,6 +3624,7 @@
     },
     "Constraints": {
       "LineItem_NoSelfPurchase": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Seller cannot purchase their own Listings (preventing wash trading).",
         "Ground_Truth_OCL": "self.product.seller <> self.order.buyer",
         "Ground_Truth_AST": {
@@ -3607,7 +3660,65 @@
           }
         }
       },
+      "Order_MinimumThreshold": {
+        "Complexity_Category": "Single Navigation",
+        "Input_NL_Requirement": "An order's minimum total price is determined by the applied coupon: if a coupon exists, the minimum is the coupon's minimum purchase requirement; otherwise, the minimum is 50 (a baseline order threshold). The order's total price must meet this minimum.",
+        "Ground_Truth_OCL": "self.totalPrice >= if not self.coupon.oclIsUndefined() then self.coupon.minPurchaseReq else 50 endif",
+        "Ground_Truth_AST": {
+          "context_class": "Order",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "PropertyCall",
+              "source": {
+                "type": "Variable",
+                "name": "self"
+              },
+              "property_name": "totalPrice"
+            },
+            "operator": ">=",
+            "right": {
+              "type": "IfExpression",
+              "condition": {
+                "type": "UnaryExpression",
+                "operator": "not",
+                "expression": {
+                  "type": "OperationCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "coupon"
+                  },
+                  "operation_name": "oclIsUndefined"
+                }
+              },
+              "then_expression": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "coupon"
+                },
+                "property_name": "minPurchaseReq"
+              },
+              "else_expression": {
+                "type": "LiteralExpression",
+                "value": 50,
+                "literal_type": "Integer"
+              }
+            }
+          }
+        }
+      },
       "Order_PriceConsistency": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "An Order's total price is the sum of (LineItem price * quantity). ",
         "Ground_Truth_OCL": "self.totalPrice = self.items->collect(i | i.quantity * i.product.price)->sum()",
         "Ground_Truth_AST": {
@@ -3637,7 +3748,7 @@
                   "property_name": "items"
                 },
                 "iterator_type": "collect",
-                "iterator_variables": [
+                "iterators": [
                   {
                     "type": "Variable",
                     "name": "i"
@@ -3668,12 +3779,13 @@
                   }
                 }
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             }
           }
         }
       },
       "Listing_ValidListingData": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Listing's price and available stock must be non-negative.",
         "Ground_Truth_OCL": "self.price >= 0 and self.stock >= 0",
         "Ground_Truth_AST": {
@@ -3720,6 +3832,7 @@
         }
       },
       "LineItem_PositiveQty": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The quantity requested in a LineItem must be strictly greater than zero.",
         "Ground_Truth_OCL": "self.quantity > 0",
         "Ground_Truth_AST": {
@@ -3745,24 +3858,29 @@
         }
       },
       "Order_CouponRequirement": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If a Coupon is applied to an Order, the Coupon's minimum purchase requirement must be less than or equal to the Order's total.",
-        "Ground_Truth_OCL": "self.coupon.isDefined() implies self.totalPrice >= self.coupon.minPurchaseReq",
+        "Ground_Truth_OCL": "not self.coupon.oclIsUndefined() implies self.totalPrice >= self.coupon.minPurchaseReq",
         "Ground_Truth_AST": {
           "context_class": "Order",
           "stereotype": "inv",
           "expression": {
             "type": "BinaryExpression",
             "left": {
-              "type": "OperationCall",
-              "source": {
-                "type": "PropertyCall",
+              "type": "UnaryExpression",
+              "operator": "not",
+              "expression": {
+                "type": "OperationCall",
                 "source": {
-                  "type": "Variable",
-                  "name": "self"
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "coupon"
                 },
-                "property_name": "coupon"
-              },
-              "operation_name": "isDefined"
+                "operation_name": "oclIsUndefined"
+              }
             },
             "operator": "implies",
             "right": {
@@ -3793,6 +3911,7 @@
         }
       },
       "Customer_NoOverdraft": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The Customer's Wallet balance must be greater than or equal to 0 (no overdrafts allowed).",
         "Ground_Truth_OCL": "self.wallet.balance >= 0",
         "Ground_Truth_AST": {
@@ -3821,65 +3940,8 @@
           }
         }
       },
-      "Listing_NotExpired": {
-        "Input_NL_Requirement": "A Listing cannot be active if its expiration year is earlier than the current year recorded in any Order in the system.",
-        "Ground_Truth_OCL": "self.isActive implies Order.allInstances()->forAll(o | self.expiryYear >= o.currentYear)",
-        "Ground_Truth_AST": {
-          "context_class": "Listing",
-          "stereotype": "inv",
-          "expression": {
-            "type": "BinaryExpression",
-            "left": {
-              "type": "PropertyCall",
-              "source": {
-                "type": "Variable",
-                "name": "self"
-              },
-              "property_name": "isActive"
-            },
-            "operator": "implies",
-            "right": {
-              "type": "IteratorExpression",
-              "source": {
-                "type": "OperationCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "Order"
-                },
-                "operation_name": "allInstances"
-              },
-              "iterator_type": "forAll",
-              "iterator_variables": [
-                {
-                  "type": "Variable",
-                  "name": "o"
-                }
-              ],
-              "body": {
-                "type": "BinaryExpression",
-                "left": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "Variable",
-                    "name": "self"
-                  },
-                  "property_name": "expiryYear"
-                },
-                "operator": ">=",
-                "right": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "Variable",
-                    "name": "o"
-                  },
-                  "property_name": "currentYear"
-                }
-              }
-            }
-          }
-        }
-      },
       "Seller_BannedNoActiveListings": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A \"Banned\" Seller cannot have any active Listings.",
         "Ground_Truth_OCL": "self.isBanned implies self.listings->forAll(l | l.isActive = false)",
         "Ground_Truth_AST": {
@@ -3907,7 +3969,7 @@
                 "property_name": "listings"
               },
               "iterator_type": "forAll",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "l"
@@ -3935,6 +3997,7 @@
         }
       },
       "LineItem_StockLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The quantity requested in a LineItem cannot exceed the stock available in the Listing.",
         "Ground_Truth_OCL": "self.quantity <= self.product.stock",
         "Ground_Truth_AST": {
@@ -3967,6 +4030,7 @@
         }
       },
       "Order_ShippingRule": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "VIP Customers (isVIP = true) get free shipping; for non-VIPs, if the order weight > 10kg, shipping cost must be added (shippingCost > 0).",
         "Ground_Truth_OCL": "(not self.buyer.isVIP and self.totalWeight > 10) implies self.shippingCost > 0",
         "Ground_Truth_AST": {
@@ -4038,7 +4102,6 @@
     "Model_Name": "HospitalBedMgmt",
     "UML_Context": {
       "Ward": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "maxCapacity": "Integer"
@@ -4049,7 +4112,6 @@
         }
       },
       "Room": {
-        "superclasses": [],
         "attributes": {
           "isICU": "Boolean",
           "bedCount": "Integer"
@@ -4060,7 +4122,6 @@
         }
       },
       "Bed": {
-        "superclasses": [],
         "attributes": {
           "isOccupied": "Boolean"
         },
@@ -4070,7 +4131,6 @@
         }
       },
       "Patient": {
-        "superclasses": [],
         "attributes": {
           "priority": "Integer",
           "isInfectious": "Boolean"
@@ -4080,7 +4140,6 @@
         }
       },
       "Nurse": {
-        "superclasses": [],
         "attributes": {
           "id": "Integer"
         },
@@ -4090,65 +4149,74 @@
       }
     },
     "Constraints": {
-      "Ward_CapacityLimit": {
-        "Input_NL_Requirement": "A Ward cannot exceed its maximum patient capacity (sum of all beds in all its rooms).",
-        "Ground_Truth_OCL": "self.rooms.beds.patient->size() <= self.maxCapacity",
+      "Patient_ValidPriority": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "A patient's priority level must be one of the standard triage levels: 1, 3, or 5.",
+        "Ground_Truth_OCL": "Set{1, 3, 5}->includes(self.priority)",
         "Ground_Truth_AST": {
-          "context_class": "Ward",
+          "context_class": "Patient",
           "stereotype": "inv",
           "expression": {
-            "type": "BinaryExpression",
-            "left": {
-              "type": "CollectionOperation",
-              "source": {
+            "type": "CollectionOperation",
+            "source": {
+              "type": "CollectionLiteral",
+              "collection_kind": "Set",
+              "elements": [
+                {
+                  "type": "LiteralExpression",
+                  "value": 1,
+                  "literal_type": "Integer"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": 3,
+                  "literal_type": "Integer"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": 5,
+                  "literal_type": "Integer"
+                }
+              ]
+            },
+            "operation_name": "includes",
+            "arguments": [
+              {
                 "type": "PropertyCall",
                 "source": {
-                  "type": "PropertyCall",
-                  "source": {
-                    "type": "PropertyCall",
-                    "source": {
-                      "type": "Variable",
-                      "name": "self"
-                    },
-                    "property_name": "rooms"
-                  },
-                  "property_name": "beds"
+                  "type": "Variable",
+                  "name": "self"
                 },
-                "property_name": "patient"
-              },
-              "operation_type": "size"
-            },
-            "operator": "<=",
-            "right": {
-              "type": "PropertyCall",
-              "source": {
-                "type": "Variable",
-                "name": "self"
-              },
-              "property_name": "maxCapacity"
-            }
+                "property_name": "priority"
+              }
+            ]
           }
         }
       },
       "Bed_OccupiedConsistency": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Bed cannot be assigned to more than one Patient at the same time (isOccupied status must be consistent).",
-        "Ground_Truth_OCL": "self.patient.isDefined() = self.isOccupied",
+        "Ground_Truth_OCL": "not self.patient.oclIsUndefined() = self.isOccupied",
         "Ground_Truth_AST": {
           "context_class": "Bed",
           "stereotype": "inv",
           "expression": {
             "type": "BinaryExpression",
             "left": {
-              "type": "OperationCall",
-              "source": {
-                "type": "PropertyCall",
+              "type": "UnaryExpression",
+              "operator": "not",
+              "expression": {
+                "type": "OperationCall",
                 "source": {
-                  "type": "Variable",
-                  "name": "self"
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "patient"
                 },
-                "property_name": "patient"
-              },
-              "operation_name": "isDefined"
+                "operation_name": "oclIsUndefined"
+              }
             },
             "operator": "=",
             "right": {
@@ -4163,6 +4231,7 @@
         }
       },
       "Patient_CriticalInICU": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "Patients with \"Critical\" priority (level 5) must be assigned to Rooms equipped with \"ICU\" capabilities.",
         "Ground_Truth_OCL": "(self.priority = 5 and (not self.bed.oclIsUndefined())) implies self.bed.room.isICU",
         "Ground_Truth_AST": {
@@ -4228,6 +4297,7 @@
         }
       },
       "Room_IsolationProtocol": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "Infectious patients (isInfectious = true) cannot be placed in a Room that already contains non-infectious patients to prevent cross-contamination.",
         "Ground_Truth_OCL": "let p = self.beds.patient->reject(oclIsUndefined()) in not (p->exists(isInfectious) and p->exists(not isInfectious))",
         "Ground_Truth_AST": {
@@ -4254,7 +4324,7 @@
                 "property_name": "patient"
               },
               "iterator_type": "reject",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "v"
@@ -4281,7 +4351,7 @@
                     "name": "p"
                   },
                   "iterator_type": "exists",
-                  "iterator_variables": [
+                  "iterators": [
                     {
                       "type": "Variable",
                       "name": "v1"
@@ -4304,7 +4374,7 @@
                     "name": "p"
                   },
                   "iterator_type": "exists",
-                  "iterator_variables": [
+                  "iterators": [
                     {
                       "type": "Variable",
                       "name": "v2"
@@ -4329,6 +4399,7 @@
         }
       },
       "Room_PhysicalBedLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total number of physical beds associated with a Room must exactly match the room's stated bed count capacity.",
         "Ground_Truth_OCL": "self.beds->size() = self.bedCount",
         "Ground_Truth_AST": {
@@ -4346,7 +4417,7 @@
                 },
                 "property_name": "beds"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "=",
             "right": {
@@ -4361,6 +4432,7 @@
         }
       },
       "Ward_StaffingRatio": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The system tracks the nurse-to-patient ratio for the Ward. The number of assigned Nurses must be at least 1 for every 4 patients.",
         "Ground_Truth_OCL": "self.nurses->size() * 4 >= self.rooms.beds.patient->size()",
         "Ground_Truth_AST": {
@@ -4380,7 +4452,7 @@
                   },
                   "property_name": "nurses"
                 },
-                "operation_type": "size"
+                "operation_name": "size"
               },
               "operator": "*",
               "right": {
@@ -4408,7 +4480,7 @@
                 },
                 "property_name": "patient"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             }
           }
         }
@@ -4419,7 +4491,6 @@
     "Model_Name": "PrescriptionSafety",
     "UML_Context": {
       "Doctor": {
-        "superclasses": [],
         "attributes": {
           "hasDEALicense": "Boolean"
         },
@@ -4428,7 +4499,6 @@
         }
       },
       "Patient": {
-        "superclasses": [],
         "attributes": {
           "name": "String"
         },
@@ -4438,7 +4508,6 @@
         }
       },
       "Drug": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "isControlledSubstance": "Boolean"
@@ -4452,7 +4521,6 @@
         }
       },
       "Interaction": {
-        "superclasses": [],
         "attributes": {
           "severity": "String"
         },
@@ -4461,7 +4529,6 @@
         }
       },
       "Prescription": {
-        "superclasses": [],
         "attributes": {
           "issueDate": "Integer",
           "expiryDate": "Integer"
@@ -4473,7 +4540,6 @@
         }
       },
       "LineItem": {
-        "superclasses": [],
         "attributes": {
           "dosageMg": "Integer",
           "frequency": "Integer"
@@ -4486,6 +4552,7 @@
     },
     "Constraints": {
       "Prescription_NotEmpty": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Prescription cannot be empty (must contain at least one drug).",
         "Ground_Truth_OCL": "self.items->size() >= 1",
         "Ground_Truth_AST": {
@@ -4503,7 +4570,7 @@
                 },
                 "property_name": "items"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": ">=",
             "right": {
@@ -4515,6 +4582,7 @@
         }
       },
       "Drug_SafeAssociatedProfile": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a Drug is a controlled substance, it must have at least one associated drug (either from drugA or drugB) that is NOT a controlled substance, to ensure safe alternatives exist in the interaction profile.",
         "Ground_Truth_OCL": "self.isControlledSubstance implies self.drugA->union(self.drugB)->exists(d | not d.isControlledSubstance)",
         "Ground_Truth_AST": {
@@ -4543,7 +4611,7 @@
                   },
                   "property_name": "drugA"
                 },
-                "operation_type": "union",
+                "operation_name": "union",
                 "arguments": [
                   {
                     "type": "PropertyCall",
@@ -4556,7 +4624,7 @@
                 ]
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "d"
@@ -4579,6 +4647,7 @@
         }
       },
       "Patient_NoAllergicPrescriptions": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Patient cannot be prescribed a Drug they are allergic to.",
         "Ground_Truth_OCL": "self.scripts.items.drug->excludesAll(self.allergies)",
         "Ground_Truth_AST": {
@@ -4602,7 +4671,7 @@
               },
               "property_name": "drug"
             },
-            "operation_type": "excludesAll",
+            "operation_name": "excludesAll",
             "arguments": [
               {
                 "type": "PropertyCall",
@@ -4617,6 +4686,7 @@
         }
       },
       "Prescription_LicenseCheck": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "High-risk drugs (isControlledSubstance = true) require the prescribing Doctor to have a special \"DEA_License\".",
         "Ground_Truth_OCL": "self.items.drug->exists(d | d.isControlledSubstance) implies self.doctor.hasDEALicense = true",
         "Ground_Truth_AST": {
@@ -4639,7 +4709,7 @@
                 "property_name": "drug"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "d"
@@ -4680,6 +4750,7 @@
         }
       },
       "LineItem_PositiveDose": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The dosage in any LineItem must be positive.",
         "Ground_Truth_OCL": "self.dosageMg > 0",
         "Ground_Truth_AST": {
@@ -4705,6 +4776,7 @@
         }
       },
       "Prescription_ExpiryAfterIssue": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The expiration date of a Prescription must be strictly after its issue date.",
         "Ground_Truth_OCL": "self.expiryDate > self.issueDate",
         "Ground_Truth_AST": {
@@ -4733,6 +4805,7 @@
         }
       },
       "Patient_AcetaminophenLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total daily dosage of \"Acetaminophen\" across all active prescriptions for a patient must not exceed 4000mg.",
         "Ground_Truth_OCL": "self.scripts.items->select(i | i.drug.name = 'Acetaminophen') ->collect(i | i.dosageMg * i.frequency)->sum() <= 4000",
         "Ground_Truth_AST": {
@@ -4759,7 +4832,7 @@
                     "property_name": "items"
                   },
                   "iterator_type": "select",
-                  "iterator_variables": [
+                  "iterators": [
                     {
                       "type": "Variable",
                       "name": "i"
@@ -4788,7 +4861,7 @@
                   }
                 },
                 "iterator_type": "collect",
-                "iterator_variables": [
+                "iterators": [
                   {
                     "type": "Variable",
                     "name": "i"
@@ -4815,7 +4888,7 @@
                   }
                 }
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             },
             "operator": "<=",
             "right": {
@@ -4832,7 +4905,6 @@
     "Model_Name": "DeviceTelemetry",
     "UML_Context": {
       "Patient": {
-        "superclasses": [],
         "attributes": {
           "status": "String",
           "earlyWarningScore": "Integer"
@@ -4842,7 +4914,6 @@
         }
       },
       "Monitor": {
-        "superclasses": [],
         "attributes": {
           "type": "String",
           "isActive": "Boolean",
@@ -4855,7 +4926,6 @@
         }
       },
       "Reading": {
-        "superclasses": [],
         "attributes": {
           "value": "Integer",
           "timestamp": "Integer"
@@ -4865,7 +4935,6 @@
         }
       },
       "Alert": {
-        "superclasses": [],
         "attributes": {
           "type": "String",
           "isAcknowledged": "Boolean"
@@ -4877,6 +4946,7 @@
     },
     "Constraints": {
       "Monitor_ValidBattery": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Monitor's battery level is a percentage (0-100).",
         "Ground_Truth_OCL": "self.batteryLevel >= 0 and self.batteryLevel <= 100",
         "Ground_Truth_AST": {
@@ -4923,6 +4993,7 @@
         }
       },
       "Monitor_LowBatteryAlert": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If the Monitor is \"Active\" and the battery is below 10%, a \"LowBattery\" Alert must exist.",
         "Ground_Truth_OCL": "(self.isActive and self.batteryLevel < 10) implies self.alerts->exists(a | a.type = 'LowBattery')",
         "Ground_Truth_AST": {
@@ -4971,7 +5042,7 @@
                 "property_name": "alerts"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "a"
@@ -4999,6 +5070,7 @@
         }
       },
       "Monitor_ReadingsOnlyIfActive": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "Readings are only valid if they are collected while the Monitor is \"Active\". Consequently, if the Monitor is in Standby (inactive), its real-time data buffer must be empty.",
         "Ground_Truth_OCL": "self.isActive = false implies self.dataStream->isEmpty()",
         "Ground_Truth_AST": {
@@ -5034,12 +5106,13 @@
                 },
                 "property_name": "dataStream"
               },
-              "operation_type": "isEmpty"
+              "operation_name": "isEmpty"
             }
           }
         }
       },
       "Monitor_HeartRateAlert": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "For a monitor of type 'ECG', if any reading in its data stream falls outside the safe range of 60 to 100 bpm, a 'Clinical' alert must be triggered.",
         "Ground_Truth_OCL": "(self.type = 'ECG' and self.dataStream->exists(r | r.value < 60 or r.value > 100)) implies self.alerts->exists(a | a.type = 'Clinical')",
         "Ground_Truth_AST": {
@@ -5078,7 +5151,7 @@
                   "property_name": "dataStream"
                 },
                 "iterator_type": "exists",
-                "iterator_variables": [
+                "iterators": [
                   {
                     "type": "Variable",
                     "name": "r"
@@ -5136,7 +5209,7 @@
                 "property_name": "alerts"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "a"
@@ -5164,6 +5237,7 @@
         }
       },
       "Patient_SingleActiveDeviceType": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Patient cannot be attached to more than one active Monitor of the same type (e.g., only one active ECG).",
         "Ground_Truth_OCL": "self.devices->select(d | d.isActive)->forAll(d1, d2 | d1.type = d2.type implies d1 = d2 )",
         "Ground_Truth_AST": {
@@ -5182,7 +5256,7 @@
                 "property_name": "devices"
               },
               "iterator_type": "select",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "d"
@@ -5198,7 +5272,7 @@
               }
             },
             "iterator_type": "forAll",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "d1"
@@ -5248,6 +5322,7 @@
         }
       },
       "Patient_ObservationProtocol": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The system calculates an \"EarlyWarningScore\". If the score is > 5, the Patient status must be set to \"Observation\".",
         "Ground_Truth_OCL": "self.earlyWarningScore > 5 implies self.status = 'Observation'",
         "Ground_Truth_AST": {
@@ -5299,7 +5374,6 @@
     "Model_Name": "CourseRegistration",
     "UML_Context": {
       "Student": {
-        "superclasses": [],
         "attributes": {
           "gpa": "Real"
         },
@@ -5309,7 +5383,6 @@
         }
       },
       "Course": {
-        "superclasses": [],
         "attributes": {
           "title": "String",
           "credits": "Integer"
@@ -5322,7 +5395,6 @@
         }
       },
       "CourseOffering": {
-        "superclasses": [],
         "attributes": {
           "maxCapacity": "Integer",
           "isHonors": "Boolean",
@@ -5335,7 +5407,6 @@
         }
       },
       "Professor": {
-        "superclasses": [],
         "attributes": {
           "name": "String"
         },
@@ -5346,6 +5417,7 @@
     },
     "Constraints": {
       "Student_MaxCourses": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Student cannot enroll in more than 6 course offerings in a single semester to prevent burnout.",
         "Ground_Truth_OCL": "self.currentEnrollments->size() <= 6",
         "Ground_Truth_AST": {
@@ -5363,7 +5435,7 @@
                 },
                 "property_name": "currentEnrollments"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -5374,7 +5446,61 @@
           }
         }
       },
+      "Student_PrerequisitesCovered": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "For every course a student is currently enrolled in, all of its prerequisite courses must be included in the student's completed courses (verified via collection containment).",
+        "Ground_Truth_OCL": "self.currentEnrollments->forAll(offering | self.completedCourses->includesAll(offering.course.prerequisites))",
+        "Ground_Truth_AST": {
+          "context_class": "Student",
+          "stereotype": "inv",
+          "expression": {
+            "type": "IteratorExpression",
+            "source": {
+              "type": "PropertyCall",
+              "source": {
+                "type": "Variable",
+                "name": "self"
+              },
+              "property_name": "currentEnrollments"
+            },
+            "iterator_type": "forAll",
+            "iterators": [
+              {
+                "type": "Variable",
+                "name": "offering"
+              }
+            ],
+            "body": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "completedCourses"
+              },
+              "operation_name": "includesAll",
+              "arguments": [
+                {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "offering"
+                    },
+                    "property_name": "course"
+                  },
+                  "property_name": "prerequisites"
+                }
+              ]
+            }
+          }
+        }
+      },
       "CourseOffering_CapacityLimit": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A CourseOffering cannot accept more students than its maxCapacity.",
         "Ground_Truth_OCL": "self.students->size() <= self.maxCapacity",
         "Ground_Truth_AST": {
@@ -5392,7 +5518,7 @@
                 },
                 "property_name": "students"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -5407,6 +5533,7 @@
         }
       },
       "Student_PrerequisiteSatisfaction": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Student cannot enroll in a CourseOffering if they have not completed the required prerequisite Course (checked via completedCourses).",
         "Ground_Truth_OCL": "self.currentEnrollments->forAll(offering | offering.course.prerequisites->forAll(req | self.completedCourses->includes(req)) )",
         "Ground_Truth_AST": {
@@ -5423,7 +5550,7 @@
               "property_name": "currentEnrollments"
             },
             "iterator_type": "forAll",
-            "iterator_variables": [
+            "iterators": [
               {
                 "type": "Variable",
                 "name": "offering"
@@ -5444,7 +5571,7 @@
                 "property_name": "prerequisites"
               },
               "iterator_type": "forAll",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "req"
@@ -5460,7 +5587,7 @@
                   },
                   "property_name": "completedCourses"
                 },
-                "operation_type": "includes",
+                "operation_name": "includes",
                 "arguments": [
                   {
                     "type": "Variable",
@@ -5473,6 +5600,7 @@
         }
       },
       "Professor_MaxTeachingLoad": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Professor cannot teach more than 3 CourseOfferings in a single semester.",
         "Ground_Truth_OCL": "self.teachingLoad->size() <= 3",
         "Ground_Truth_AST": {
@@ -5490,7 +5618,7 @@
                 },
                 "property_name": "teachingLoad"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -5502,6 +5630,7 @@
         }
       },
       "CourseOffering_HonorsGPA": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a CourseOffering is marked as \"Honors\", the enrolling Student must have a GPA greater than 3.5.",
         "Ground_Truth_OCL": "self.isHonors implies self.students->forAll(s | s.gpa > 3.5)",
         "Ground_Truth_AST": {
@@ -5529,7 +5658,7 @@
                 "property_name": "students"
               },
               "iterator_type": "forAll",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "s"
@@ -5557,6 +5686,7 @@
         }
       },
       "Student_MaxCredits": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total credit hours for a Student's current enrollments must not exceed 20.",
         "Ground_Truth_OCL": "self.currentEnrollments.course.credits->sum() <= 20",
         "Ground_Truth_AST": {
@@ -5582,7 +5712,7 @@
                 },
                 "property_name": "credits"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             },
             "operator": "<=",
             "right": {
@@ -5594,6 +5724,7 @@
         }
       },
       "CourseOffering_ActiveMinStudents": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A CourseOffering must have at least 5 students enrolled to be considered \"Active\"; otherwise, it is cancelled.",
         "Ground_Truth_OCL": "self.isActive implies self.students->size() >= 5",
         "Ground_Truth_AST": {
@@ -5622,7 +5753,7 @@
                   },
                   "property_name": "students"
                 },
-                "operation_type": "size"
+                "operation_name": "size"
               },
               "operator": ">=",
               "right": {
@@ -5640,7 +5771,6 @@
     "Model_Name": "OnlineExam",
     "UML_Context": {
       "Student": {
-        "superclasses": [],
         "attributes": {
           "name": "String"
         },
@@ -5649,7 +5779,6 @@
         }
       },
       "Exam": {
-        "superclasses": [],
         "attributes": {
           "durationMinutes": "Integer",
           "isHighStakes": "Boolean",
@@ -5661,7 +5790,6 @@
         }
       },
       "Question": {
-        "superclasses": [],
         "attributes": {
           "points": "Integer",
           "content": "String"
@@ -5671,7 +5799,6 @@
         }
       },
       "ExamSession": {
-        "superclasses": [],
         "attributes": {
           "startTime": "Integer",
           "endTime": "Integer",
@@ -5686,7 +5813,6 @@
         }
       },
       "SuspiciousEvent": {
-        "superclasses": [],
         "attributes": {
           "type": "String"
         },
@@ -5697,6 +5823,7 @@
     },
     "Constraints": {
       "ExamSession_DurationLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The duration of an ExamSession (endTime - startTime) must not exceed the Exam's allowed durationMinutes(assume all time variables are represented as integers in minutes for direct arithmetic).",
         "Ground_Truth_OCL": "(self.endTime - self.startTime) <= self.exam.durationMinutes",
         "Ground_Truth_AST": {
@@ -5741,6 +5868,7 @@
         }
       },
       "ExamSession_AutoFlagging": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "An ExamSession is marked \"Flagged\" if the number of SuspiciousEvents recorded exceeds 3.",
         "Ground_Truth_OCL": "self.events->size() > 3 implies self.isFlagged = true",
         "Ground_Truth_AST": {
@@ -5760,7 +5888,7 @@
                   },
                   "property_name": "events"
                 },
-                "operation_type": "size"
+                "operation_name": "size"
               },
               "operator": ">",
               "right": {
@@ -5791,6 +5919,7 @@
         }
       },
       "Exam_TotalScoreCheck": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total score of an Exam must equal the sum of the points of all its Questions.",
         "Ground_Truth_OCL": "self.totalScore = self.questions.points->sum()",
         "Ground_Truth_AST": {
@@ -5821,12 +5950,13 @@
                 },
                 "property_name": "points"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             }
           }
         }
       },
       "Student_OneActiveSession": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A Student cannot start a new ExamSession if they have another session currently in progress (isInProgress = true).",
         "Ground_Truth_OCL": "self.sessions->select(s | s.isInProgress)->size() <= 1",
         "Ground_Truth_AST": {
@@ -5847,7 +5977,7 @@
                   "property_name": "sessions"
                 },
                 "iterator_type": "select",
-                "iterator_variables": [
+                "iterators": [
                   {
                     "type": "Variable",
                     "name": "s"
@@ -5862,7 +5992,7 @@
                   "property_name": "isInProgress"
                 }
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
@@ -5874,8 +6004,9 @@
         }
       },
       "ExamSession_HighStakesProctor": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If an Exam is marked as \"HighStakes\", it requires a proctor to be assigned (simulated by proctorId being defined/non-null string).",
-        "Ground_Truth_OCL": "self.exam.isHighStakes implies self.proctorId.isDefined()",
+        "Ground_Truth_OCL": "self.exam.isHighStakes implies not self.proctorId.oclIsUndefined()",
         "Ground_Truth_AST": {
           "context_class": "ExamSession",
           "stereotype": "inv",
@@ -5895,21 +6026,26 @@
             },
             "operator": "implies",
             "right": {
-              "type": "OperationCall",
-              "source": {
-                "type": "PropertyCall",
+              "type": "UnaryExpression",
+              "operator": "not",
+              "expression": {
+                "type": "OperationCall",
                 "source": {
-                  "type": "Variable",
-                  "name": "self"
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "proctorId"
                 },
-                "property_name": "proctorId"
-              },
-              "operation_name": "isDefined"
+                "operation_name": "oclIsUndefined"
+              }
             }
           }
         }
       },
       "Exam_NonEmptyExam": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The number of Questions in an Exam must be positive.",
         "Ground_Truth_OCL": "self.questions->size() > 0",
         "Ground_Truth_AST": {
@@ -5927,7 +6063,7 @@
                 },
                 "property_name": "questions"
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": ">",
             "right": {
@@ -5944,7 +6080,6 @@
     "Model_Name": "LibrarySystem",
     "UML_Context": {
       "Member": {
-        "superclasses": [],
         "attributes": {
           "type": "String",
           "isBlocked": "Boolean"
@@ -5954,7 +6089,6 @@
         }
       },
       "ResourceItem": {
-        "superclasses": [],
         "attributes": {
           "isDigital": "Boolean",
           "status": "String"
@@ -5964,7 +6098,6 @@
         }
       },
       "Loan": {
-        "superclasses": [],
         "attributes": {
           "daysBorrowed": "Integer",
           "isOverdue": "Boolean",
@@ -5979,6 +6112,7 @@
     },
     "Constraints": {
       "Loan_MaxDurationCheck": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If a Member has \"Faculty\" status, their max loan duration is 180 days; for others, it is 30 days.",
         "Ground_Truth_OCL": "(self.member.type = 'Faculty' implies self.daysBorrowed <= 180) and (self.member.type <> 'Faculty' implies self.daysBorrowed <= 30)",
         "Ground_Truth_AST": {
@@ -6075,6 +6209,7 @@
         }
       },
       "Member_BlockIfOverdue": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a Member has any existing Loan that is 'Overdue', their account must be marked as blocked (isBlocked = true) to prevent borrowing new items.",
         "Ground_Truth_OCL": "self.loans->exists(l | l.isOverdue) implies self.isBlocked = true",
         "Ground_Truth_AST": {
@@ -6093,7 +6228,7 @@
                 "property_name": "loans"
               },
               "iterator_type": "exists",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "l"
@@ -6130,6 +6265,7 @@
         }
       },
       "Loan_ItemCondition": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A ResourceItem cannot be loaned out if its status is \"Lost\" or \"Damaged\".",
         "Ground_Truth_OCL": "self.isActive implies (self.item.status <> 'Lost' and self.item.status <> 'Damaged')",
         "Ground_Truth_AST": {
@@ -6196,6 +6332,7 @@
         }
       },
       "Loan_DigitalFree": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "Digital resources (isDigital = true) do not incur late fees (fineAmount must be 0).",
         "Ground_Truth_OCL": "self.item.isDigital implies self.fineAmount = 0",
         "Ground_Truth_AST": {
@@ -6237,6 +6374,7 @@
         }
       },
       "Member_MaxFineBlock": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The total fineAmount for a Member is the sum of fines from all their Loans. If this total exceeds $50, the Member's account is marked isBlocked.",
         "Ground_Truth_OCL": "self.loans.fineAmount->sum() > 50.0 implies self.isBlocked = true",
         "Ground_Truth_AST": {
@@ -6260,7 +6398,7 @@
                   },
                   "property_name": "fineAmount"
                 },
-                "operation_type": "sum"
+                "operation_name": "sum"
               },
               "operator": ">",
               "right": {
@@ -6289,94 +6427,6 @@
             }
           }
         }
-      },
-      "ResourceItem_SingleActiveLoan": {
-        "Input_NL_Requirement": "A Physical resource can only be associated with one active Loan at a time (no double booking).",
-        "Ground_Truth_OCL": "self.isDigital = false implies Loan.allInstances()->select(l | l.item = self and l.isActive)->size() <= 1",
-        "Ground_Truth_AST": {
-          "context_class": "ResourceItem",
-          "stereotype": "inv",
-          "expression": {
-            "type": "BinaryExpression",
-            "left": {
-              "type": "BinaryExpression",
-              "left": {
-                "type": "PropertyCall",
-                "source": {
-                  "type": "Variable",
-                  "name": "self"
-                },
-                "property_name": "isDigital"
-              },
-              "operator": "=",
-              "right": {
-                "type": "LiteralExpression",
-                "value": false,
-                "literal_type": "Boolean"
-              }
-            },
-            "operator": "implies",
-            "right": {
-              "type": "BinaryExpression",
-              "left": {
-                "type": "CollectionOperation",
-                "source": {
-                  "type": "IteratorExpression",
-                  "source": {
-                    "type": "OperationCall",
-                    "source": {
-                      "type": "Variable",
-                      "name": "Loan"
-                    },
-                    "operation_name": "allInstances"
-                  },
-                  "iterator_type": "select",
-                  "iterator_variables": [
-                    {
-                      "type": "Variable",
-                      "name": "l"
-                    }
-                  ],
-                  "body": {
-                    "type": "BinaryExpression",
-                    "left": {
-                      "type": "BinaryExpression",
-                      "left": {
-                        "type": "PropertyCall",
-                        "source": {
-                          "type": "Variable",
-                          "name": "l"
-                        },
-                        "property_name": "item"
-                      },
-                      "operator": "=",
-                      "right": {
-                        "type": "Variable",
-                        "name": "self"
-                      }
-                    },
-                    "operator": "and",
-                    "right": {
-                      "type": "PropertyCall",
-                      "source": {
-                        "type": "Variable",
-                        "name": "l"
-                      },
-                      "property_name": "isActive"
-                    }
-                  }
-                },
-                "operation_type": "size"
-              },
-              "operator": "<=",
-              "right": {
-                "type": "LiteralExpression",
-                "value": 1,
-                "literal_type": "Integer"
-              }
-            }
-          }
-        }
       }
     }
   },
@@ -6384,7 +6434,6 @@
     "Model_Name": "P2PLending",
     "UML_Context": {
       "User": {
-        "superclasses": [],
         "attributes": {
           "name": "String",
           "annualIncome": "Real"
@@ -6396,7 +6445,6 @@
         }
       },
       "CreditProfile": {
-        "superclasses": [],
         "attributes": {
           "score": "Integer"
         },
@@ -6405,7 +6453,6 @@
         }
       },
       "LoanRequest": {
-        "superclasses": [],
         "attributes": {
           "amount": "Real",
           "interestRate": "Real",
@@ -6417,7 +6464,6 @@
         }
       },
       "Investment": {
-        "superclasses": [],
         "attributes": {
           "amount": "Real"
         },
@@ -6429,6 +6475,7 @@
     },
     "Constraints": {
       "LoanRequest_MinCreditScore": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Borrower must have a credit score of at least 600 to create a LoanRequest.",
         "Ground_Truth_OCL": "self.borrower.profile.score >= 600",
         "Ground_Truth_AST": {
@@ -6462,6 +6509,7 @@
         }
       },
       "LoanRequest_DebtToIncomeLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The requested loan amount cannot exceed 40% of the Borrower's annual income (Debt-to-Income ratio).",
         "Ground_Truth_OCL": "self.amount <= (self.borrower.annualIncome * 0.40)",
         "Ground_Truth_AST": {
@@ -6495,7 +6543,7 @@
               "operator": "*",
               "right": {
                 "type": "LiteralExpression",
-                "value": 0.40,
+                "value": 0.4,
                 "literal_type": "Real"
               }
             }
@@ -6503,6 +6551,7 @@
         }
       },
       "Investment_NoSelfFunding": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A User cannot invest in their own LoanRequest (conflict of interest).",
         "Ground_Truth_OCL": "self.investor <> self.request.borrower",
         "Ground_Truth_AST": {
@@ -6535,6 +6584,7 @@
         }
       },
       "LoanRequest_ActiveRequiresFullFunding": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A LoanRequest is marked \"Active\" (funded) only if the sum of all associated Investment amounts equals the requested amount.",
         "Ground_Truth_OCL": "self.status = 'Active' implies self.funding.amount->sum() = self.amount",
         "Ground_Truth_AST": {
@@ -6576,7 +6626,7 @@
                   },
                   "property_name": "amount"
                 },
-                "operation_type": "sum"
+                "operation_name": "sum"
               },
               "operator": "=",
               "right": {
@@ -6592,6 +6642,7 @@
         }
       },
       "Investment_PositiveAmount": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "An Investment amount must be strictly positive.",
         "Ground_Truth_OCL": "self.amount > 0",
         "Ground_Truth_AST": {
@@ -6617,6 +6668,7 @@
         }
       },
       "LoanRequest_ValidInterestRate": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "The interest rate on any loan must be between 2% and 25%.",
         "Ground_Truth_OCL": "self.interestRate >= 2.0 and self.interestRate <= 25.0",
         "Ground_Truth_AST": {
@@ -6668,7 +6720,6 @@
     "Model_Name": "CryptoExchange",
     "UML_Context": {
       "User": {
-        "superclasses": [],
         "attributes": {
           "isKYCVerified": "Boolean",
           "isSanctioned": "Boolean"
@@ -6678,7 +6729,6 @@
         }
       },
       "Blockchain": {
-        "superclasses": [],
         "attributes": {
           "chainId": "String"
         },
@@ -6687,7 +6737,6 @@
         }
       },
       "Wallet": {
-        "superclasses": [],
         "attributes": {
           "isFrozen": "Boolean"
         },
@@ -6698,7 +6747,6 @@
         }
       },
       "Token": {
-        "superclasses": [],
         "attributes": {
           "symbol": "String",
           "isRestricted": "Boolean"
@@ -6708,7 +6756,6 @@
         }
       },
       "Balance": {
-        "superclasses": [],
         "attributes": {
           "amount": "Real"
         },
@@ -6719,7 +6766,6 @@
         }
       },
       "Transaction": {
-        "superclasses": [],
         "attributes": {
           "amount": "Real",
           "fee": "Real"
@@ -6732,6 +6778,7 @@
     },
     "Constraints": {
       "Balance_NonNegativeBalance": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Wallet's balance for any specific Token cannot be negative.",
         "Ground_Truth_OCL": "self.amount >= 0",
         "Ground_Truth_AST": {
@@ -6757,6 +6804,7 @@
         }
       },
       "Balance_RestrictedTokenAccess": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If a Token is marked \"Restricted\" (e.g., security tokens), the User owning the Wallet must be \"KYC_Verified\" (Know Your Customer).",
         "Ground_Truth_OCL": "self.token.isRestricted implies self.wallet.owner.isKYCVerified = true",
         "Ground_Truth_AST": {
@@ -6806,6 +6854,7 @@
         }
       },
       "Transaction_InsufficientFunds": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Transaction cannot be executed if the wallet balance is less than the transaction amount plus the transaction fee.",
         "Ground_Truth_OCL": "(self.amount + self.fee) <= self.sourceBalance.amount",
         "Ground_Truth_AST": {
@@ -6850,6 +6899,7 @@
         }
       },
       "Transaction_SourceOwnership": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Transaction can only be executed if its source balance explicitly belongs to the sender's wallet.",
         "Ground_Truth_OCL": "self.sourceBalance.wallet = self.sender",
         "Ground_Truth_AST": {
@@ -6882,6 +6932,7 @@
         }
       },
       "User_SanctionsFreeze": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "If a User is flagged as \"Sanctioned\", all their Wallets must be frozen (isFrozen = true).",
         "Ground_Truth_OCL": "self.isSanctioned implies self.wallets->forAll(w | w.isFrozen = true)",
         "Ground_Truth_AST": {
@@ -6909,7 +6960,7 @@
                 "property_name": "wallets"
               },
               "iterator_type": "forAll",
-              "iterator_variables": [
+              "iterators": [
                 {
                   "type": "Variable",
                   "name": "w"
@@ -6937,6 +6988,7 @@
         }
       },
       "Transaction_MinDustLimit": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Transaction amount must be greater than the minimum dust limit (0.00001).",
         "Ground_Truth_OCL": "self.amount > 0.00001",
         "Ground_Truth_AST": {
@@ -6955,7 +7007,7 @@
             "operator": ">",
             "right": {
               "type": "LiteralExpression",
-              "value": 0.00001,
+              "value": 1e-05,
               "literal_type": "Real"
             }
           }
@@ -6967,7 +7019,6 @@
     "Model_Name": "CreditRisk",
     "UML_Context": {
       "CardHolder": {
-        "superclasses": [],
         "attributes": {
           "residenceCountry": "String",
           "avgTxValue": "Real"
@@ -6977,7 +7028,6 @@
         }
       },
       "CreditCard": {
-        "superclasses": [],
         "attributes": {
           "limit": "Real",
           "balance": "Real",
@@ -6991,7 +7041,6 @@
         }
       },
       "Merchant": {
-        "superclasses": [],
         "attributes": {
           "country": "String",
           "category": "String"
@@ -7001,7 +7050,6 @@
         }
       },
       "Transaction": {
-        "superclasses": [],
         "attributes": {
           "amount": "Real",
           "status": "String",
@@ -7014,7 +7062,6 @@
         }
       },
       "FraudAlert": {
-        "superclasses": [],
         "attributes": {
           "severity": "String"
         },
@@ -7025,6 +7072,7 @@
     },
     "Constraints": {
       "CreditCard_OverLimitCheck": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "The sum of all \"Pending\" transactions plus the current balance must not exceed the CreditCard's credit limit.",
         "Ground_Truth_OCL": "let pendingAmt = self.txs->select(t | t.status = 'Pending').amount->sum() in (self.balance + pendingAmt) <= self.limit",
         "Ground_Truth_AST": {
@@ -7051,7 +7099,7 @@
                     "property_name": "txs"
                   },
                   "iterator_type": "select",
-                  "iterator_variables": [
+                  "iterators": [
                     {
                       "type": "Variable",
                       "name": "t"
@@ -7077,7 +7125,7 @@
                 },
                 "property_name": "amount"
               },
-              "operation_type": "sum"
+              "operation_name": "sum"
             },
             "body": {
               "type": "BinaryExpression",
@@ -7111,6 +7159,7 @@
         }
       },
       "Transaction_HighRiskCap": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If a Merchant is in a \"HighRisk\" category, the Transaction amount cannot exceed $1000.",
         "Ground_Truth_OCL": "self.merchant.category = 'HighRisk' implies self.amount <= 1000",
         "Ground_Truth_AST": {
@@ -7161,6 +7210,7 @@
         }
       },
       "Transaction_InternationalCheck": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A Transaction occurring in a country different from the CardHolder's residence requires the card to have \"InternationalEnabled\" set to true.",
         "Ground_Truth_OCL": "self.merchant.country <> self.card.holder.residenceCountry implies self.card.internationalEnabled = true",
         "Ground_Truth_AST": {
@@ -7226,6 +7276,7 @@
         }
       },
       "Transaction_CardExpiryCheck": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "If a CreditCard is \"Expired\" (current year > expiry year), it cannot have any \"New\" transactions.",
         "Ground_Truth_OCL": "self.status = 'New' implies self.year <= self.card.expiryYear",
         "Ground_Truth_AST": {
@@ -7279,8 +7330,9 @@
         }
       },
       "Transaction_LargeTxFraudAlert": {
+        "Complexity_Category": "Single Navigation",
         "Input_NL_Requirement": "A FraudAlert is automatically generated if the Transaction amount is 5 times greater than the CardHolder's average transaction value.",
-        "Ground_Truth_OCL": "self.amount > (self.card.holder.avgTxValue * 5) implies self.alert.isDefined()",
+        "Ground_Truth_OCL": "self.amount > (self.card.holder.avgTxValue * 5) implies not self.alert.oclIsUndefined()",
         "Ground_Truth_AST": {
           "context_class": "Transaction",
           "stereotype": "inv",
@@ -7325,21 +7377,26 @@
             },
             "operator": "implies",
             "right": {
-              "type": "OperationCall",
-              "source": {
-                "type": "PropertyCall",
+              "type": "UnaryExpression",
+              "operator": "not",
+              "expression": {
+                "type": "OperationCall",
                 "source": {
-                  "type": "Variable",
-                  "name": "self"
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "alert"
                 },
-                "property_name": "alert"
-              },
-              "operation_name": "isDefined"
+                "operation_name": "oclIsUndefined"
+              }
             }
           }
         }
       },
       "CardHolder_MaxCards": {
+        "Complexity_Category": "Collection Algebra",
         "Input_NL_Requirement": "A CardHolder cannot have more than 3 active CreditCards.",
         "Ground_Truth_OCL": "self.cards->select(c | c.isActive)->size() <= 3",
         "Ground_Truth_AST": {
@@ -7360,7 +7417,7 @@
                   "property_name": "cards"
                 },
                 "iterator_type": "select",
-                "iterator_variables": [
+                "iterators": [
                   {
                     "type": "Variable",
                     "name": "c"
@@ -7375,12 +7432,536 @@
                   "property_name": "isActive"
                 }
               },
-              "operation_type": "size"
+              "operation_name": "size"
             },
             "operator": "<=",
             "right": {
               "type": "LiteralExpression",
               "value": 3,
+              "literal_type": "Integer"
+            }
+          }
+        }
+      }
+    }
+  },
+  "case_31_Insurance_Claim_Processing_System": {
+    "Model_Name": "Insurance Claim System",
+    "UML_Context": {
+      "Policy": {
+        "attributes": {
+          "maxCoverage": "Real",
+          "deductible": "Real"
+        },
+        "associations": {
+          "claims": "Set(Claim)"
+        }
+      },
+      "Claim": {
+        "attributes": {
+          "requestedAmount": "Real",
+          "isApproved": "Boolean"
+        },
+        "associations": {
+          "adjuster": "Adjuster[0..1]",
+          "policy": "Policy[1..1]"
+        }
+      },
+      "Adjuster": {
+        "attributes": {
+          "approvedAmount": "Real"
+        },
+        "associations": {
+          "claim": "Claim[1..1]"
+        }
+      }
+    },
+    "Constraints": {
+      "Claim_EffectivePayout": {
+        "Complexity_Category": "Single Navigation",
+        "Input_NL_Requirement": "The effective payout of a claim is the adjuster's approved amount minus the policy deductible if an adjuster is assigned; otherwise, it is 0. The effective payout must not exceed the policy's maximum coverage.",
+        "Ground_Truth_OCL": "(if not self.adjuster.oclIsUndefined() then self.adjuster.approvedAmount - self.policy.deductible else 0 endif) <= self.policy.maxCoverage",
+        "Ground_Truth_AST": {
+          "context_class": "Claim",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "IfExpression",
+              "condition": {
+                "type": "UnaryExpression",
+                "operator": "not",
+                "expression": {
+                  "type": "OperationCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "adjuster"
+                  },
+                  "operation_name": "oclIsUndefined"
+                }
+              },
+              "then_expression": {
+                "type": "BinaryExpression",
+                "left": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "adjuster"
+                  },
+                  "property_name": "approvedAmount"
+                },
+                "operator": "-",
+                "right": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "policy"
+                  },
+                  "property_name": "deductible"
+                }
+              },
+              "else_expression": {
+                "type": "LiteralExpression",
+                "value": 0,
+                "literal_type": "Integer"
+              }
+            },
+            "operator": "<=",
+            "right": {
+              "type": "PropertyCall",
+              "source": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "policy"
+              },
+              "property_name": "maxCoverage"
+            }
+          }
+        }
+      },
+      "Claim_ApprovalThreshold": {
+        "Complexity_Category": "Single Navigation",
+        "Input_NL_Requirement": "A claim's maximum allowable amount is the policy's maximum coverage if an adjuster is assigned; otherwise, it is 0 (unassigned claims cannot be approved). The requested amount must not exceed this maximum.",
+        "Ground_Truth_OCL": "self.requestedAmount <= if not self.adjuster.oclIsUndefined() then self.policy.maxCoverage else 0 endif",
+        "Ground_Truth_AST": {
+          "context_class": "Claim",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "PropertyCall",
+              "source": {
+                "type": "Variable",
+                "name": "self"
+              },
+              "property_name": "requestedAmount"
+            },
+            "operator": "<=",
+            "right": {
+              "type": "IfExpression",
+              "condition": {
+                "type": "UnaryExpression",
+                "operator": "not",
+                "expression": {
+                  "type": "OperationCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "adjuster"
+                  },
+                  "operation_name": "oclIsUndefined"
+                }
+              },
+              "then_expression": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "policy"
+                },
+                "property_name": "maxCoverage"
+              },
+              "else_expression": {
+                "type": "LiteralExpression",
+                "value": 0,
+                "literal_type": "Integer"
+              }
+            }
+          }
+        }
+      },
+      "Claim_CoverageRatio": {
+        "Complexity_Category": "Single Navigation",
+        "Input_NL_Requirement": "The ratio of a claim's requested amount to its policy's maximum coverage must not exceed 0.8, ensuring no single claim consumes more than 80% of the policy.",
+        "Ground_Truth_OCL": "self.policy.maxCoverage > 0 implies self.requestedAmount / self.policy.maxCoverage <= 0.8",
+        "Ground_Truth_AST": {
+          "context_class": "Claim",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "BinaryExpression",
+              "left": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "policy"
+                },
+                "property_name": "maxCoverage"
+              },
+              "operator": ">",
+              "right": {
+                "type": "LiteralExpression",
+                "value": 0,
+                "literal_type": "Integer"
+              }
+            },
+            "operator": "implies",
+            "right": {
+              "type": "BinaryExpression",
+              "left": {
+                "type": "BinaryExpression",
+                "left": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "Variable",
+                    "name": "self"
+                  },
+                  "property_name": "requestedAmount"
+                },
+                "operator": "/",
+                "right": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "policy"
+                  },
+                  "property_name": "maxCoverage"
+                }
+              },
+              "operator": "<=",
+              "right": {
+                "type": "LiteralExpression",
+                "value": 0.8,
+                "literal_type": "Real"
+              }
+            }
+          }
+        }
+      },
+      "Policy_AverageClaimValue": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "If a policy has at least one claim, the average requested amount across all claims must be at least the policy's deductible, preventing the policy from being overloaded with trivial claims.",
+        "Ground_Truth_OCL": "self.claims->notEmpty() implies self.claims.requestedAmount->sum() / self.claims->size() >= self.deductible",
+        "Ground_Truth_AST": {
+          "context_class": "Policy",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "claims"
+              },
+              "operation_name": "notEmpty"
+            },
+            "operator": "implies",
+            "right": {
+              "type": "BinaryExpression",
+              "left": {
+                "type": "BinaryExpression",
+                "left": {
+                  "type": "CollectionOperation",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "PropertyCall",
+                      "source": {
+                        "type": "Variable",
+                        "name": "self"
+                      },
+                      "property_name": "claims"
+                    },
+                    "property_name": "requestedAmount"
+                  },
+                  "operation_name": "sum"
+                },
+                "operator": "/",
+                "right": {
+                  "type": "CollectionOperation",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "claims"
+                  },
+                  "operation_name": "size"
+                }
+              },
+              "operator": ">=",
+              "right": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "deductible"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "case_32_Education_Assessment_System": {
+    "Model_Name": "EducationAssessment",
+    "UML_Context": {
+      "Exam": {
+        "attributes": {
+          "passingScore": "Integer",
+          "maxScore": "Integer"
+        },
+        "associations": {
+          "sections": "Set(Section)"
+        }
+      },
+      "Section": {
+        "attributes": {
+          "weight": "Real"
+        },
+        "associations": {
+          "exam": "Exam[1..1]",
+          "questions": "Set(Question)"
+        }
+      },
+      "Question": {
+        "attributes": {
+          "points": "Integer",
+          "topic": "String"
+        },
+        "associations": {
+          "section": "Section[1..1]"
+        }
+      }
+    },
+    "Constraints": {
+      "Question_ValidTopic": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "A question's topic must be one of the standard curriculum topics: 'Algebra', 'Geometry', or 'Calculus'.",
+        "Ground_Truth_OCL": "Set{'Algebra', 'Geometry', 'Calculus'}->includes(self.topic)",
+        "Ground_Truth_AST": {
+          "context_class": "Question",
+          "stereotype": "inv",
+          "expression": {
+            "type": "CollectionOperation",
+            "source": {
+              "type": "CollectionLiteral",
+              "collection_kind": "Set",
+              "elements": [
+                {
+                  "type": "LiteralExpression",
+                  "value": "Algebra",
+                  "literal_type": "String"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": "Geometry",
+                  "literal_type": "String"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": "Calculus",
+                  "literal_type": "String"
+                }
+              ]
+            },
+            "operation_name": "includes",
+            "arguments": [
+              {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "topic"
+              }
+            ]
+          }
+        }
+      },
+      "Question_ValidPoints": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "A question's point value must be one of the standard allocations: 5, 10, or 20.",
+        "Ground_Truth_OCL": "Set{5, 10, 20}->includes(self.points)",
+        "Ground_Truth_AST": {
+          "context_class": "Question",
+          "stereotype": "inv",
+          "expression": {
+            "type": "CollectionOperation",
+            "source": {
+              "type": "CollectionLiteral",
+              "collection_kind": "Set",
+              "elements": [
+                {
+                  "type": "LiteralExpression",
+                  "value": 5,
+                  "literal_type": "Integer"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": 10,
+                  "literal_type": "Integer"
+                },
+                {
+                  "type": "LiteralExpression",
+                  "value": 20,
+                  "literal_type": "Integer"
+                }
+              ]
+            },
+            "operation_name": "includes",
+            "arguments": [
+              {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "Variable",
+                  "name": "self"
+                },
+                "property_name": "points"
+              }
+            ]
+          }
+        }
+      },
+      "Exam_AllTopicsCovered": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "An exam must cover all core topics. The set of topics from all questions across all sections must include all required core topics: 'Algebra', 'Geometry', and 'Calculus'.",
+        "Ground_Truth_OCL": "self.sections.questions.topic->asSet()->includesAll(Set{'Algebra', 'Geometry', 'Calculus'})",
+        "Ground_Truth_AST": {
+          "context_class": "Exam",
+          "stereotype": "inv",
+          "expression": {
+            "type": "CollectionOperation",
+            "source": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "PropertyCall",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "Variable",
+                      "name": "self"
+                    },
+                    "property_name": "sections"
+                  },
+                  "property_name": "questions"
+                },
+                "property_name": "topic"
+              },
+              "operation_name": "asSet"
+            },
+            "operation_name": "includesAll",
+            "arguments": [
+              {
+                "type": "CollectionLiteral",
+                "collection_kind": "Set",
+                "elements": [
+                  {
+                    "type": "LiteralExpression",
+                    "value": "Algebra",
+                    "literal_type": "String"
+                  },
+                  {
+                    "type": "LiteralExpression",
+                    "value": "Geometry",
+                    "literal_type": "String"
+                  },
+                  {
+                    "type": "LiteralExpression",
+                    "value": "Calculus",
+                    "literal_type": "String"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "Exam_UniqueTopicCount": {
+        "Complexity_Category": "Collection Algebra",
+        "Input_NL_Requirement": "The number of distinct topics covered by an exam (across all sections) must not exceed 5.",
+        "Ground_Truth_OCL": "self.sections.questions.topic->asSet()->size() <= 5",
+        "Ground_Truth_AST": {
+          "context_class": "Exam",
+          "stereotype": "inv",
+          "expression": {
+            "type": "BinaryExpression",
+            "left": {
+              "type": "CollectionOperation",
+              "source": {
+                "type": "CollectionOperation",
+                "source": {
+                  "type": "PropertyCall",
+                  "source": {
+                    "type": "PropertyCall",
+                    "source": {
+                      "type": "PropertyCall",
+                      "source": {
+                        "type": "Variable",
+                        "name": "self"
+                      },
+                      "property_name": "sections"
+                    },
+                    "property_name": "questions"
+                  },
+                  "property_name": "topic"
+                },
+                "operation_name": "asSet"
+              },
+              "operation_name": "size"
+            },
+            "operator": "<=",
+            "right": {
+              "type": "LiteralExpression",
+              "value": 5,
               "literal_type": "Integer"
             }
           }

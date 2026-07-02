@@ -1,19 +1,17 @@
 import re
 import itertools
+import time
+import gc
 from typing import Dict, List, Tuple
 from z3 import *
-from debug_utils import dump_formula, ENABLE_DUMP
 from json_schema import (OCLExpression, PropertyCall, OperationCall, BinaryExpression,
                          IteratorExpression, CollectionOperation, LiteralExpression,
                          IfExpression, UnaryExpression, LetExpression, CollectionLiteral)
 
+Z3_TIMEOUT_MS = 60000
 
-# ==========================================
-# 集合引用标记类
-# ==========================================
+
 class CollectionRef:
-    """标记类：代表 Z3 编码管线中的集合引用。"""
-
     def __init__(self, root_inst, cnt_func, element_class, valid_instances,
                  attr_func=None, nav_chain=None, is_set_semantic=False):
         self.root_inst = root_inst
@@ -24,11 +22,7 @@ class CollectionRef:
         self.nav_chain = nav_chain or []
         self.is_set_semantic = is_set_semantic
 
-
-# ==========================================
-# 组件 1：有界元模型编码器
-# ==========================================
-class BoundedMetamodelEncoder:
+class BoundedUMLModelEncoder:
     def __init__(self, uml_context: dict, scope: int = 3):
         self.uml_context = uml_context
         self.scope = scope
@@ -102,7 +96,7 @@ class BoundedMetamodelEncoder:
     def _generate_axioms(self):
         self.axioms = []
 
-        # Null 哨兵全局公理
+
         for key, func in self.attr_funcs.items():
             class_name = key.split('.')[0]
             null = self.null_consts[class_name]
@@ -132,10 +126,12 @@ class BoundedMetamodelEncoder:
                         self.axioms.append(func(src_inst, tgt_inst) >= 0)
                         if meta.get("is_set_semantic", False):
                             self.axioms.append(func(src_inst, tgt_inst) <= 1)
+                        else:
+                            self.axioms.append(func(src_inst, tgt_inst) <= self.scope)
 
             else:
                 self.axioms.append(func(src_null) == tgt_null)
-                # [1..1] 关联非空全局约束
+
                 if meta["is_mandatory"]:
                     for src_inst in self.get_valid_instances(meta["src_class"]):
                         self.axioms.append(
@@ -144,11 +140,11 @@ class BoundedMetamodelEncoder:
     def get_valid_instances(self, class_name: str) -> List[Any]:
         sort = self.sorts[class_name]
         instances = [getattr(sort, f'{class_name.lower()}_{i}') for i in range(self.scope)]
-        instances.append(self.null_consts[class_name])  # 核心修复：将 null 哨兵纳入追踪域
+        instances.append(self.null_consts[class_name])
         return instances
 
     def _default_value_for_sort(self, sort_ref):
-        """根据 Z3 Sort 返回类型安全的哑值（用于 Sort Mismatch 回退）"""
+
         if sort_ref == IntSort(): return IntVal(0)
         if sort_ref == RealSort(): return RealVal(0)
         if sort_ref == BoolSort(): return BoolVal(False)
@@ -156,12 +152,9 @@ class BoundedMetamodelEncoder:
         return IntVal(0)
 
 
-# ==========================================
-# 组件 2：AST 驱动的 Z3 忠实翻译器
-# ==========================================
 class OCLZ3Translator:
-    def __init__(self, meta_encoder: BoundedMetamodelEncoder):
-        self.me = meta_encoder
+    def __init__(self, encoder: BoundedUMLModelEncoder):
+        self.encoder = encoder
 
     def translate(self, ast: OCLExpression, var_bindings: Dict[str, Any]) -> Tuple[Any, List]:
         node_type = ast.type
@@ -203,7 +196,7 @@ class OCLZ3Translator:
 
         raise NotImplementedError(f"AST node type not implemented: {node_type}")
 
-    #Basic Expressions
+
     def _handle_literal(self, ast: LiteralExpression) -> Tuple[Any, List]:
         val = ast.value
         lt = ast.literal_type
@@ -217,7 +210,7 @@ class OCLZ3Translator:
     def _handle_unary_expr(self, ast: UnaryExpression, var_bindings: Dict) -> Tuple[Any, List]:
         expr, safety = self.translate(ast.expression, var_bindings)
         if ast.operator == "not":
-            # 终极修复：直接透传 safety，防止 not(invalid) 被错误反转为 True
+
             return Not(expr), safety
         elif ast.operator == "-":
             return -expr, safety
@@ -237,12 +230,12 @@ class OCLZ3Translator:
             return self._apply_arithmetic(op, left, right), left_safety + right_safety
 
         if op in ['=', '<>', '<', '<=', '>', '>=']:
-            # Int/Real 自动提升必须在 Sort mismatch 检查之前
+
             if is_real(left) and is_int(right):
                 right = ToReal(right)
             elif is_int(left) and is_real(right):
                 left = ToReal(left)
-            # 提升后再做 Sort mismatch 检查
+
             if op in ['=', '<>'] and left.sort() != right.sort():
                 if op == '=':
                     return BoolVal(False), left_safety + right_safety
@@ -258,32 +251,36 @@ class OCLZ3Translator:
         s_r = combine_s(right_safety)
 
         if op == 'and':
-            # 对称化修复：如果一侧为 False，则无视另一侧的 Invalid；仅当两侧均不为 False 且有一侧 Invalid 时，整体 Invalid
+
             is_safe = Or(And(s_l, Not(left)), And(s_r, Not(right)), And(s_l, s_r))
             return And(left, right), [is_safe]
         if op == 'or':
-            # 对称化修复：如果一侧为 True，则无视另一侧的 Invalid
+
             is_safe = Or(And(s_l, left), And(s_r, right), And(s_l, s_r))
             return Or(left, right), [is_safe]
         if op == 'implies':
-            # implies 保持非对称，符合 OCL 语义 (false implies invalid = true)
+
             return Implies(left, right), [And(s_l, Implies(left, s_r))]
         if op == 'xor':
             return Xor(left, right), left_safety + right_safety
         raise NotImplementedError(f"Binary operator not implemented: {op}")
 
-    def _handle_if_expr(self, ast: IfExpression, var_bindings: Dict) -> Tuple[Any, List]:
+    def _handle_if_expr(self, ast, var_bindings):
         cond, cond_safety = self.translate(ast.condition, var_bindings)
-        then_expr, then_safety = self.translate(ast.then_expr, var_bindings)
-        else_expr, else_safety = self.translate(ast.else_expr, var_bindings)
+        then_expr, then_safety = self.translate(ast.then_expression, var_bindings)
+        else_expr, else_safety = self.translate(ast.else_expression, var_bindings)
 
-        # 终极修复：条件分支下的安全条件动态选择
-        def combine_s(s_list): return And(*s_list) if s_list else BoolVal(True)
+        if is_real(then_expr) and is_int(else_expr):
+            else_expr = ToReal(else_expr)
+        elif is_int(then_expr) and is_real(else_expr):
+            then_expr = ToReal(then_expr)
+
+        def combine_s(s_list):
+            return And(*s_list) if s_list else BoolVal(True)
 
         s_cond = combine_s(cond_safety)
         s_then = combine_s(then_safety)
         s_else = combine_s(else_safety)
-
         combined_safety = And(s_cond, If(cond, s_then, s_else))
         return If(cond, then_expr, else_expr), [combined_safety]
 
@@ -294,7 +291,7 @@ class OCLZ3Translator:
         body_expr, body_safety = self.translate(ast.body, new_bindings)
         return body_expr, val_safety + body_safety
 
-    #Property & Operation Calls
+
     def _handle_property_call(self, ast: PropertyCall, var_bindings: Dict) -> Tuple[Any, List]:
         src_result, src_safety = self.translate(ast.source, var_bindings)
 
@@ -304,23 +301,31 @@ class OCLZ3Translator:
         src_expr = src_result
         src_type_name = self._infer_class_name(ast.source, var_bindings)
         func_key = f"{src_type_name}.{ast.property_name}"
+        src_null = self.encoder.null_consts.get(src_type_name)
 
-        # === 核心修复：获取源类型的 null 哨兵 ===
-        # 任何对单对象的点号访问（.attr 或 .nav），前提都是源对象不能是 null
-        src_null = self.me.null_consts.get(src_type_name)
-        base_safety = src_safety + ([src_expr != src_null] if src_null is not None else [])
+        is_mandatory = False
+        if func_key in self.encoder.assoc_funcs:
+            is_mandatory = self.encoder.assoc_meta[func_key].get("is_mandatory", False)
 
-        # 关联导航
-        if func_key in self.me.assoc_funcs:
-            func = self.me.assoc_funcs[func_key]
-            meta = self.me.assoc_meta[func_key]
+
+        is_source_non_null = self._is_guaranteed_non_null(ast.source, var_bindings)
+
+
+        null_guard = [] if (is_mandatory or is_source_non_null) else (
+            [src_expr != src_null] if src_null is not None else [])
+        base_safety = src_safety + null_guard
+
+
+        if func_key in self.encoder.assoc_funcs:
+            func = self.encoder.assoc_funcs[func_key]
+            meta = self.encoder.assoc_meta[func_key]
 
             if src_expr.sort() != func.domain(0):
                 raise ValueError(...)
 
             if meta["is_count"]:
-                valid_instances = self.me.get_valid_instances(meta["tgt_class"])
-                # 修复：集合导航源不能为 null (null.staff 是 invalid)
+                valid_instances = self.encoder.get_valid_instances(meta["tgt_class"])
+
                 return CollectionRef(
                     root_inst=src_expr, cnt_func=func, element_class=meta["tgt_class"],
                     valid_instances=valid_instances,
@@ -330,9 +335,8 @@ class OCLZ3Translator:
                 result = func(src_expr)
                 return result, base_safety
 
-        # 属性访问
-        if func_key in self.me.attr_funcs:
-            func = self.me.attr_funcs[func_key]
+        if func_key in self.encoder.attr_funcs:
+            func = self.encoder.attr_funcs[func_key]
             if src_expr.sort() != func.domain(0):
                 raise ValueError(...)
             return func(src_expr), base_safety
@@ -342,49 +346,64 @@ class OCLZ3Translator:
     def _handle_implicit_collect(self, coll_ref: CollectionRef, prop_name: str,
                                  src_safety: List) -> Tuple[Any, List]:
         if not isinstance(coll_ref, CollectionRef):
-            # 理论上进入此函数的必定是 CollectionRef，如果不是，说明 LLM 在非集合上调用了 ->
+
             raise ValueError(
                 f"Semantic Error: Cannot navigate property '{prop_name}' on a non-collection value. Did you mean to use '.' instead of '->'?")
-        """处理隐式 collect：从集合导航属性 (如 self.staff.salary)"""
+
         element_class = coll_ref.element_class
         func_key = f"{element_class}.{prop_name}"
 
-        if func_key in self.me.attr_funcs:
+        if func_key in self.encoder.attr_funcs:
             return CollectionRef(
                 root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func,
                 element_class=element_class, valid_instances=coll_ref.valid_instances,
-                attr_func=self.me.attr_funcs[func_key],
+                attr_func=self.encoder.attr_funcs[func_key],
                 nav_chain=coll_ref.nav_chain,
                 is_set_semantic=False), src_safety
 
-        if func_key in self.me.assoc_funcs:
-            func = self.me.assoc_funcs[func_key]
-            meta = self.me.assoc_meta[func_key]
+        if func_key in self.encoder.assoc_funcs:
+            func = self.encoder.assoc_funcs[func_key]
+            meta = self.encoder.assoc_meta[func_key]
 
             if not meta["is_count"]:
-                # 立刻进行目标类型投影，废弃失效的 nav_chain
                 tgt_class = meta["tgt_class"]
-                tgt_instances = self.me.get_valid_instances(tgt_class)
+                tgt_instances_raw = self.encoder.get_valid_instances(tgt_class)
+                tgt_null = self.encoder.null_consts.get(tgt_class)
+
+
+                tgt_instances = [inst for inst in tgt_instances_raw
+                                 if tgt_null is None or not inst.eq(tgt_null)]
                 src_root_inst = coll_ref.root_inst
-                null_c = self.me.null_consts.get(coll_ref.element_class)
+                null_c = self.encoder.null_consts.get(coll_ref.element_class)
 
                 def mapped_cnt(root, tgt_elem):
                     total = IntVal(0)
                     for src_elem in coll_ref.valid_instances:
-                        if null_c is not None and src_elem.eq(null_c): continue
+                        if null_c is not None and src_elem.eq(null_c):
+                            continue
                         nav_val = src_elem
                         for nav_func in coll_ref.nav_chain:
                             nav_val = nav_func(nav_val)
                         nav_val = func(nav_val)
                         src_cnt = coll_ref.cnt_func(src_root_inst, src_elem)
-                        total = total + If(nav_val == tgt_elem, src_cnt, IntVal(0))
+
+
+                        if tgt_null is not None:
+                            total = total + If(And(nav_val != tgt_null, nav_val == tgt_elem),
+                                               src_cnt, IntVal(0))
+                        else:
+                            total = total + If(nav_val == tgt_elem, src_cnt, IntVal(0))
                     return total
 
                 return CollectionRef(
-                    root_inst=coll_ref.root_inst, cnt_func=mapped_cnt,
-                    element_class=tgt_class, valid_instances=tgt_instances,
-                    nav_chain=[], is_set_semantic=False
+                    root_inst=coll_ref.root_inst,
+                    cnt_func=mapped_cnt,
+                    element_class=tgt_class,
+                    valid_instances=tgt_instances,
+                    nav_chain=[],
+                    is_set_semantic=False
                 ), src_safety
+
             else:
                 return self._handle_nested_collection(coll_ref, func_key, meta, src_safety)
 
@@ -392,62 +411,35 @@ class OCLZ3Translator:
 
     def _handle_nested_collection(self, parent_ref: CollectionRef, func_key: str, meta: Dict, src_safety: List) -> \
     Tuple[Any, List]:
-        sub_cnt_func = self.me.assoc_funcs[func_key]
+        sub_cnt_func = self.encoder.assoc_funcs[func_key]
         sub_element_class = meta["tgt_class"]
-        sub_valid_instances = self.me.get_valid_instances(sub_element_class)
+        sub_valid_instances = self.encoder.get_valid_instances(sub_element_class)
         prop_root_inst = parent_ref.root_inst
-        null_c = self.me.null_consts.get(parent_ref.element_class)  # 获取 null 哨兵
+        null_c = self.encoder.null_consts.get(parent_ref.element_class)
 
         def combined_cnt(root, sub_elem):
             total = IntVal(0)
             for parent_elem in parent_ref.valid_instances:
-                # 核心修复：剔除对 null 的属性导航贡献
+
                 if null_c is not None and parent_elem.eq(null_c):
                     continue
                 parent_cnt = parent_ref.cnt_func(prop_root_inst, parent_elem)
                 sub_cnt = sub_cnt_func(parent_elem, sub_elem)
-                max_cnt = 1 if parent_ref.is_set_semantic else self.me.scope
+                max_cnt = 1 if parent_ref.is_set_semantic else self.encoder.scope
                 total = total + self._linear_multiply(parent_cnt, sub_cnt, max_cnt)
             return total
 
         return CollectionRef(
             root_inst=prop_root_inst, cnt_func=combined_cnt, element_class=sub_element_class,
-            valid_instances=sub_valid_instances, is_set_semantic=False), src_safety  # 恢复使用 src_safety
+            valid_instances=sub_valid_instances, is_set_semantic=False), src_safety
 
     def _handle_operation_call(self, ast: OperationCall, var_bindings: Dict) -> Tuple[Any, List]:
         op = ast.operation_name
-
-        # === 第一类：不需要翻译 source 的操作 ===
-        if op == "allInstances":
-            if ast.source.type == "Variable" and ast.source.name in self.me.uml_context:
-                element_class = ast.source.name
-            else:
-                element_class = self._infer_class_name(ast.source, var_bindings)
-            valid_instances = self.me.get_valid_instances(element_class)
-
-            # === 核心修复：OCL 语义中 allInstances 绝不包含 null ===
-            null_c = self.me.null_consts.get(element_class)
-            if null_c is not None:
-                valid_instances = [inst for inst in valid_instances if not inst.eq(null_c)]
-
-            return CollectionRef(
-                root_inst=None, cnt_func=lambda root, inst: IntVal(1), element_class=element_class,
-                valid_instances=valid_instances, is_set_semantic=True), []
-
-        # === 第二类：需要翻译 source 的操作 ===
         src_expr, src_safety = self.translate(ast.source, var_bindings)
-
-        if op == "isDefined":
-            src_type = self._infer_class_name(ast.source, var_bindings)
-            null_const = self.me.null_consts.get(src_type)
-            is_safe = And(*src_safety) if src_safety else BoolVal(True)
-            if null_const is not None:
-                return And(is_safe, src_expr != null_const), []
-            return is_safe, []
 
         if op == "oclIsUndefined":
             src_type = self._infer_class_name(ast.source, var_bindings)
-            null_const = self.me.null_consts.get(src_type)
+            null_const = self.encoder.null_consts.get(src_type)
             is_safe = And(*src_safety) if src_safety else BoolVal(True)
             if null_const is not None:
                 return Or(Not(is_safe), src_expr == null_const), []
@@ -455,14 +447,10 @@ class OCLZ3Translator:
 
         if op == "abs":
             return If(src_expr < 0, -src_expr, src_expr), src_safety
-        if op == "oclIsKindOf":
-            return BoolVal(True), src_safety
-        if op == "toString":
-            return StringVal(""), src_safety
 
         raise NotImplementedError(f"Operation not implemented: {op}")
 
-    #Collection
+
     def _handle_collection_literal(self, ast: CollectionLiteral, var_bindings: Dict) -> Tuple[Any, List]:
         elements = []
         literal_safety = []
@@ -475,13 +463,13 @@ class OCLZ3Translator:
             unique_elements = []
             seen_keys = set()
             for elem_expr in elements:
-                # 1. 归一化：消除代数/语法差异
+
                 normalized = simplify(elem_expr)
-                # 2. 防碰撞哈希键：融合代数表示与底层 Sort
+
                 key = f"{str(normalized)}:{normalized.sort()}"
                 if key not in seen_keys:
                     seen_keys.add(key)
-                    # 优化：直接保留化简后的 AST，降低 SMT 求解器负担
+
                     unique_elements.append(normalized)
             elements = unique_elements
 
@@ -496,9 +484,9 @@ class OCLZ3Translator:
     def _handle_iterator(self, ast: IteratorExpression, var_bindings: Dict) -> Tuple[Any, List]:
         coll_ref, coll_safety = self._resolve_collection_source(ast.source, var_bindings)
         element_class = coll_ref.element_class
-        iter_vars = [v.name for v in ast.iterator_variables]
+        iter_vars = [v.name for v in ast.iterators]
 
-        # 缺陷 1 修复：多重迭代变量的笛卡尔积展开
+
         if len(iter_vars) == 1:
             return self._handle_single_var_iterator(
                 ast, coll_ref, iter_vars[0], element_class, var_bindings, coll_safety)
@@ -507,11 +495,7 @@ class OCLZ3Translator:
                 ast, coll_ref, iter_vars, element_class, var_bindings, coll_safety)
 
     def _handle_single_var_iterator(self, ast, coll_ref, iter_var_name, element_class, var_bindings, coll_safety):
-        """单变量迭代器的处理（含安全条件冒泡修复）"""
-
         accumulated_body_safety = []
-
-        # ========== forAll / exists：布尔逻辑 ==========
         if ast.iterator_type in ["forAll", "exists"]:
             results = []
             for inst in coll_ref.valid_instances:
@@ -531,12 +515,10 @@ class OCLZ3Translator:
             elif ast.iterator_type == "exists":
                 return Or(*results), final_safety
 
-        # ========== isUnique ==========
         elif ast.iterator_type == "isUnique":
             return self._handle_is_unique_single(
                 ast, coll_ref, iter_var_name, element_class, var_bindings, coll_safety)
 
-        # ========== select / reject ==========
         elif ast.iterator_type in ["select", "reject"]:
             body_vals = {}
             for inst in coll_ref.valid_instances:
@@ -566,7 +548,6 @@ class OCLZ3Translator:
                 nav_chain=coll_ref.nav_chain,
                 is_set_semantic=coll_ref.is_set_semantic), final_safety
 
-        # ========== collect ==========
         elif ast.iterator_type == "collect":
             for inst in coll_ref.valid_instances:
                 pass
@@ -584,14 +565,10 @@ class OCLZ3Translator:
         raise NotImplementedError(f"Iterator not implemented: {ast.iterator_type}")
 
     def _handle_multi_var_iterator(self, ast, coll_ref, iter_vars, element_class, var_bindings, coll_safety):
-        """多重迭代变量的笛卡尔积展开（含安全条件冒泡修复）"""
         iter_type = ast.iterator_type
         n_vars = len(iter_vars)
-
-        # 核心修复：统一收集闭包体在各个实例组合上求值时的安全条件
         accumulated_body_safety = []
 
-        # ========== forAll / exists：布尔逻辑 ==========
         if iter_type in ["forAll", "exists"]:
             results = []
             for inst_tuple in itertools.product(coll_ref.valid_instances, repeat=n_vars):
@@ -616,9 +593,8 @@ class OCLZ3Translator:
             elif iter_type == "exists":
                 return Or(*results), final_safety
 
-        # ========== isUnique ==========
         elif iter_type == "isUnique":
-            # isUnique 需要预计算所有元组的 body_val 和 safety
+
             tuples = list(itertools.product(coll_ref.valid_instances, repeat=n_vars))
             body_vals = {}
             for t in tuples:
@@ -652,13 +628,12 @@ class OCLZ3Translator:
         raise NotImplementedError(f"Multi-var iterator not implemented: {iter_type}")
 
     def _handle_is_unique_single(self, ast, coll_ref, iter_var_name, element_class, var_bindings, coll_safety):
-        """单变量 isUnique 处理（含安全条件冒泡修复）"""
+
         pair_constraints = []
         accumulated_body_safety = []
         instances = coll_ref.valid_instances
-
-        # 预求值缓存
         body_vals = {}
+
         for inst in instances:
             body_val, body_safety_ref = self._eval_body_with_var(
                 ast.body, iter_var_name, inst, element_class, var_bindings)
@@ -681,35 +656,35 @@ class OCLZ3Translator:
 
     def _handle_collection_op(self, ast: CollectionOperation, var_bindings: Dict) -> Tuple[Any, List]:
 
-        op = ast.operation_type
+        op = ast.operation_name
         coll_ref, coll_safety = self._resolve_collection_source(ast.source, var_bindings)
 
         def _get_actual_val_for_coll(target_coll: CollectionRef, inst, accumulated_safety, cnt_val):
-            """返回 (值, 是否有效的Z3布尔表达式)"""
+
             if target_coll.attr_func is None:
                 return inst, BoolVal(True)
             if isinstance(target_coll.attr_func, tuple) and target_coll.attr_func[0] == "collect_body":
                 _, body_ast, var_name, elem_class, saved_bindings = target_coll.attr_func
                 body_val, body_safety = self._eval_body_with_var(body_ast, var_name, inst, elem_class, saved_bindings)
-                # 核心修复：返回 body_safety 作为有效性标记
+
                 return body_val, body_safety
             elif callable(target_coll.attr_func):
                 nav_val = inst
                 is_valid = BoolVal(True)
                 for nav_func in target_coll.nav_chain:
-                    null_c = self.me.sort_to_null.get(nav_val.sort())
+                    null_c = self.encoder.sort_to_null.get(nav_val.sort())
                     if null_c is not None:
                         is_valid = And(is_valid, nav_val != null_c)
                     nav_val = nav_func(nav_val)
-                null_c = self.me.sort_to_null.get(nav_val.sort())
+                null_c = self.encoder.sort_to_null.get(nav_val.sort())
                 if null_c is not None:
                     is_valid = And(is_valid, nav_val != null_c)
-                # 核心修复：任何一环为 null 则整体 invalid
+
                 return target_coll.attr_func(nav_val), is_valid
             return inst, BoolVal(True)
 
         def _safe_eq(left, right):
-            """安全的 Z3 等价性比较，防止 Int/Real Sort Mismatch"""
+
             if is_real(left) and is_int(right):
                 right = ToReal(right)
             elif is_int(left) and is_real(right):
@@ -739,7 +714,7 @@ class OCLZ3Translator:
                 for inst in coll_ref.valid_instances:
                     base_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
                     actual_val, is_valid = _get_actual_val_for_coll(coll_ref, inst, arg_safety, base_cnt)
-                    effective_cnt = If(is_valid, base_cnt, IntVal(0))  # 剔除 invalid
+                    effective_cnt = If(is_valid, base_cnt, IntVal(0))
                     conds.append(And(effective_cnt > 0, _safe_eq(actual_val, arg_expr)))
 
                 return Or(*conds) if conds else BoolVal(False), coll_safety + arg_safety
@@ -751,30 +726,35 @@ class OCLZ3Translator:
                 for inst in coll_ref.valid_instances:
                     base_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
                     actual_val, is_valid = _get_actual_val_for_coll(coll_ref, inst, arg_safety, base_cnt)
-                    effective_cnt = If(is_valid, base_cnt, IntVal(0))  # 剔除 invalid
+                    effective_cnt = If(is_valid, base_cnt, IntVal(0))
                     conds.append(Implies(effective_cnt > 0, Not(_safe_eq(actual_val, arg_expr))))
 
                 return And(*conds) if conds else BoolVal(True), coll_safety + arg_safety
 
         if op == "asSet":
+            _old_cnt = coll_ref.cnt_func
+            _old_root = coll_ref.root_inst
+
+            def _set_truncated_cnt(root, inst):
+                actual_root = _old_root if root is None else root
+                raw_cnt = _old_cnt(actual_root, inst)
+                return If(raw_cnt > 0, IntVal(1), IntVal(0))
+
             return CollectionRef(
-                root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func, element_class=coll_ref.element_class,
-                valid_instances=coll_ref.valid_instances, attr_func=coll_ref.attr_func, nav_chain=coll_ref.nav_chain,
-                is_set_semantic=True  # 强制转为 Set 语义
+                root_inst=coll_ref.root_inst,
+                cnt_func=_set_truncated_cnt,
+                element_class=coll_ref.element_class,
+                valid_instances=coll_ref.valid_instances,
+                attr_func=coll_ref.attr_func,
+                nav_chain=coll_ref.nav_chain,
+                is_set_semantic=True
             ), coll_safety
 
         if op == "asBag":
             return CollectionRef(
                 root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func, element_class=coll_ref.element_class,
                 valid_instances=coll_ref.valid_instances, attr_func=coll_ref.attr_func, nav_chain=coll_ref.nav_chain,
-                is_set_semantic=False  # 强制转为 Bag 语义
-            ), coll_safety
-
-        if op == "flatten":
-            return CollectionRef(
-                root_inst=coll_ref.root_inst, cnt_func=coll_ref.cnt_func, element_class=coll_ref.element_class,
-                valid_instances=coll_ref.valid_instances, attr_func=coll_ref.attr_func, nav_chain=coll_ref.nav_chain,
-                is_set_semantic=False  # flatten 强制转为 Bag 语义
+                is_set_semantic=False
             ), coll_safety
 
         if op == "count":
@@ -784,12 +764,11 @@ class OCLZ3Translator:
                 for inst in coll_ref.valid_instances:
                     base_cnt = coll_ref.cnt_func(coll_ref.root_inst, inst)
                     actual_val, is_valid = _get_actual_val_for_coll(coll_ref, inst, arg_safety, base_cnt)
-                    effective_cnt = If(is_valid, base_cnt, IntVal(0))  # 剔除 invalid
+                    effective_cnt = If(is_valid, base_cnt, IntVal(0))
                     cnt_terms.append(If(_safe_eq(actual_val, arg_expr), effective_cnt, IntVal(0)))
 
                 total = Sum(*cnt_terms) if cnt_terms else IntVal(0)
                 return total, coll_safety + arg_safety
-
 
         if op in ["includesAll", "excludesAll"]:
             if not ast.arguments:
@@ -797,10 +776,6 @@ class OCLZ3Translator:
             arg_expr, arg_safety = self.translate(ast.arguments[0], var_bindings)
             if not isinstance(arg_expr, CollectionRef):
                 raise ValueError(f"Semantic Error: {op} requires a collection as argument.")
-
-            # === 核心修复：预求值与缓存 (Pre-computation & Caching) ===
-            # 1. 以 O(N + M) 复杂度独立完成两侧集合真实值的提取
-            # 2. 正确且仅一次地将所有深层闭包的 safety 条件冒泡至对应的 coll_safety / arg_safety
 
             coll_actuals = {}
             coll_is_valid = {}
@@ -819,12 +794,9 @@ class OCLZ3Translator:
                 arg_is_valid[arg_inst] = is_valid
             conds = []
 
-            # ==========================================
             if op == "includesAll":
                 for arg_inst in arg_expr.valid_instances:
                     arg_actual = arg_actuals[arg_inst]
-
-                    # 1. 计算该真实值在参数集合中的总频数
                     arg_match_terms = []
                     for inner_arg in arg_expr.valid_instances:
                         inner_actual = arg_actuals[inner_arg]
@@ -833,7 +805,6 @@ class OCLZ3Translator:
                         arg_match_terms.append(If(_safe_eq(inner_actual, arg_actual), effective_inner_cnt, IntVal(0)))
                     total_arg_cnt = Sum(*arg_match_terms) if arg_match_terms else IntVal(0)
 
-                    # 2. 计算该真实值在主集合中的总频数
                     coll_match_terms = []
                     for coll_inst in coll_ref.valid_instances:
                         coll_actual = coll_actuals[coll_inst]
@@ -842,27 +813,23 @@ class OCLZ3Translator:
                         coll_match_terms.append(If(_safe_eq(coll_actual, arg_actual), effective_coll_cnt, IntVal(0)))
                     total_coll_cnt = Sum(*coll_match_terms) if coll_match_terms else IntVal(0)
 
-                    # 3. 包含断言：主频数 >= 参数频数
                     conds.append(total_coll_cnt >= total_arg_cnt)
-
                 return And(*conds) if conds else BoolVal(True), coll_safety + arg_safety
 
-            # ==========================================
             elif op == "excludesAll":
                 for arg_inst in arg_expr.valid_instances:
                     arg_actual = arg_actuals[arg_inst]
                     arg_cnt = arg_expr.cnt_func(arg_expr.root_inst, arg_inst)
+                    effective_arg_cnt = If(arg_is_valid[arg_inst], arg_cnt, IntVal(0))
 
                     coll_match_terms = []
                     for coll_inst in coll_ref.valid_instances:
                         coll_actual = coll_actuals[coll_inst]
                         coll_cnt = coll_ref.cnt_func(coll_ref.root_inst, coll_inst)
-                        coll_match_terms.append(If(_safe_eq(coll_actual, arg_actual), coll_cnt, IntVal(0)))
+                        effective_coll_cnt = If(coll_is_valid[coll_inst], coll_cnt, IntVal(0))
+                        coll_match_terms.append(If(_safe_eq(coll_actual, arg_actual), effective_coll_cnt, IntVal(0)))
                     total_coll_cnt = Sum(*coll_match_terms) if coll_match_terms else IntVal(0)
-
-                    # 排斥断言：参数中存在的实例，在主集合的映射频数必须为 0
-                    conds.append(Implies(arg_cnt > 0, total_coll_cnt == 0))
-
+                    conds.append(Implies(effective_arg_cnt > 0, total_coll_cnt == 0))
                 return And(*conds) if conds else BoolVal(True), coll_safety + arg_safety
 
         if op in ["union", "intersection"]:
@@ -872,17 +839,14 @@ class OCLZ3Translator:
             if not isinstance(arg_expr, CollectionRef):
                 raise ValueError(f"{op} requires a collection as argument")
 
-            # === 1. Set/Bag 语义判定 ===
             if op == "union":
                 result_is_set = coll_ref.is_set_semantic and arg_expr.is_set_semantic
-            else:  # intersection
+            else:
                 result_is_set = coll_ref.is_set_semantic or arg_expr.is_set_semantic
 
-            # === 2. 基于 Z3 Sort 的实例域兼容性检查 ===
             left_insts = coll_ref.valid_instances
             right_insts = arg_expr.valid_instances
 
-            # 边界情况：空集合
             if not left_insts:
                 return CollectionRef(
                     root_inst=arg_expr.root_inst, cnt_func=arg_expr.cnt_func,
@@ -899,9 +863,7 @@ class OCLZ3Translator:
             left_sort = left_insts[0].sort()
             right_sort = right_insts[0].sort()
 
-            # ---------- 场景 A：同构域（最常见，如同一 UML 类的实例） ----------
             if left_sort == right_sort:
-                # 合并实例域并去重
                 seen = set()
                 final_instances = []
                 for inst in (left_insts + right_insts):
@@ -910,14 +872,11 @@ class OCLZ3Translator:
                         seen.add(inst_id)
                         final_instances.append(inst)
 
-                # 确定最终的 element_class（处理 Integer/Real OCL提升）
                 final_class = coll_ref.element_class
                 if {coll_ref.element_class, arg_expr.element_class} == {"Integer", "Real"}:
                     final_class = "Real"
 
-                # 同构域下，两个 cnt_func 接受相同的 Sort，绝对安全
                 def merged_cnt(root, inst):
-                    # 关键：每个 cnt_func 必须使用自己的 root_inst
                     root1 = coll_ref.root_inst if root is None else root
                     root2 = arg_expr.root_inst if root is None else root
                     cnt1 = coll_ref.cnt_func(root1, inst)
@@ -933,16 +892,15 @@ class OCLZ3Translator:
                     is_set_semantic=result_is_set
                 ), coll_safety + arg_safety
 
-            # ---------- 场景 B：Int/Real 提升域（仅限 CollectionLiteral 数值合并） ----------
+
             elif {str(left_sort), str(right_sort)} == {"Int", "Real"}:
                 final_class = "Real"
-                # 安全转换：仅对 IntSort 实例做 ToReal，RealSort 保持原样
                 final_instances = []
                 for inst in left_insts:
                     final_instances.append(ToReal(inst) if is_int(inst) else inst)
                 for inst in right_insts:
                     final_instances.append(ToReal(inst) if is_int(inst) else inst)
-                # 去重
+
                 seen = set()
                 unique_instances = []
                 for inst in final_instances:
@@ -951,8 +909,7 @@ class OCLZ3Translator:
                         seen.add(key)
                         unique_instances.append(inst)
 
-                # CollectionLiteral 的 cnt_func 通常是 literal_cnt（忽略 inst 参数）
-                # 但为防御性编程，对原来是 IntSort 的 cnt_func，需包装桥接
+
                 def safe_numeric_cnt(orig_cnt_func, orig_root, orig_sort, root, inst):
                     if orig_sort == IntSort() and is_real(inst):
                         return If(IsInt(inst), orig_cnt_func(orig_root, ToInt(inst)), IntVal(0))
@@ -975,7 +932,6 @@ class OCLZ3Translator:
                     is_set_semantic=result_is_set
                 ), coll_safety + arg_safety
 
-            # ---------- 场景 C：异构域（如 Set(Dog) union Set(Cat)） ----------
             else:
                 raise ValueError(
                     f"Z3 Compilation Error: Cannot perform {op} on collections with "
@@ -985,15 +941,28 @@ class OCLZ3Translator:
 
         raise NotImplementedError(f"Collection operation not implemented: {op}")
 
-    #Tools
+    def _is_guaranteed_non_null(self, ast, var_bindings):
+
+        if ast.type == "Variable":
+            return ast.name == "self"
+        elif ast.type == "PropertyCall":
+            src_type_name = self._infer_class_name(ast.source, var_bindings)
+            func_key = f"{src_type_name}.{ast.property_name}"
+            if func_key in self.encoder.assoc_funcs:
+                meta = self.encoder.assoc_meta[func_key]
+
+                if meta.get("is_mandatory", False) and not meta.get("is_count", False):
+                    return self._is_guaranteed_non_null(ast.source, var_bindings)
+            return False
+        return False
+
     def _eval_body_with_var(self, body_ast, var_name, inst, element_class, var_bindings):
         new_bindings = var_bindings.copy()
         new_bindings[var_name] = inst
         new_bindings[var_name + "_type"] = element_class
         body_expr, body_safety = self.translate(body_ast, new_bindings)
 
-        # 关键修复：不再将 safety 乘入 body_expr！
-        # 闭包求值若触发 invalid，让 combined_safety 冒泡即可，body_expr 保留原值（作为无意义的垃圾值被外层忽略）
+
         combined_safety = And(*body_safety) if body_safety else BoolVal(True)
 
         return body_expr, combined_safety
@@ -1005,7 +974,7 @@ class OCLZ3Translator:
             new_bindings[var_name + "_type"] = element_class
         body_expr, body_safety = self.translate(body_ast, new_bindings)
 
-        # 关键修复：彻底分离 value 和 safety
+
         combined_safety = And(*body_safety) if body_safety else BoolVal(True)
 
         return body_expr, combined_safety
@@ -1048,24 +1017,21 @@ class OCLZ3Translator:
                 if not (is_int(body_val) or is_real(body_val)):
                     raise ValueError("Z3 Compilation Error: ->sum() requires numeric values...")
 
-                max_cnt = 1 if coll_ref.is_set_semantic else self.me.scope
-                # 核心修复：若闭包体 invalid，有效计数降为 0（即剔除），而非爆炸
+                max_cnt = 1 if coll_ref.is_set_semantic else self.encoder.scope
+
                 valid_multiplier = If(body_safety_ref, IntVal(1), IntVal(0))
                 safe_cnt = cnt * valid_multiplier
                 term = self._linear_multiply(safe_cnt, body_val, max_cnt)
                 terms.append(term)
 
-                # 修复：不再追加 Implies(cnt > 0, body_safety_ref)，invalid 被静默剔除
             return Sum(*terms) if terms else IntVal(0), sum_safety_acc
 
-        # 然后再检查 callable（FuncDeclRef）
         if not callable(attr_func):
             raise RuntimeError(
                 f"Z3 Translator Internal Error: attr_func has unexpected type {type(attr_func).__name__}. "
                 f"This is a translator bug, not an AST error."
             )
 
-        # 正常的 FuncDeclRef 路径
         terms = []
         sum_safety_acc = []
         for inst in coll_ref.valid_instances:
@@ -1076,10 +1042,8 @@ class OCLZ3Translator:
                 nav_val = nav_func(nav_val)
 
             attr_val = attr_func(nav_val)
-            max_cnt = 1 if coll_ref.is_set_semantic else self.me.scope
-
-            # 核心修复：剔除 invalid 而非爆炸
-            null_c = self.me.sort_to_null.get(nav_val.sort())
+            max_cnt = 1 if coll_ref.is_set_semantic else self.encoder.scope
+            null_c = self.encoder.sort_to_null.get(nav_val.sort())
             if null_c is not None:
                 term = If(nav_val != null_c, self._linear_multiply(cnt, attr_val, max_cnt), IntVal(0))
             else:
@@ -1093,8 +1057,8 @@ class OCLZ3Translator:
                 return bindings.get("context_class", "Unknown")
             if ast.name + "_type" in bindings:
                 return bindings[ast.name + "_type"]
-            # 缺陷 2 修复：检查是否为全局类名调用
-            if ast.name in self.me.uml_context:
+
+            if ast.name in self.encoder.uml_context:
                 return ast.name
             return "Unknown"
 
@@ -1103,9 +1067,7 @@ class OCLZ3Translator:
             return self._get_element_class_name(owner_class, ast.property_name)
 
         elif ast.type == "OperationCall":
-            if ast.operation_name == "allInstances":
-                return self._infer_class_name(ast.source, bindings)
-            if ast.operation_name in ["isDefined", "oclIsUndefined"]:
+            if ast.operation_name == "oclIsUndefined":
                 return "Boolean"
             if ast.operation_name == "abs":
                 return self._infer_class_name(ast.source, bindings)
@@ -1121,12 +1083,13 @@ class OCLZ3Translator:
             return self._infer_class_name(ast.source, bindings)
 
         elif ast.type == "CollectionOperation":
-            if ast.operation_type in ["size", "count"]:
+            if ast.operation_name in ["size", "count"]:
                 return "Integer"
-            if ast.operation_type in ["isEmpty", "notEmpty", "includes", "excludes"]:
+            if ast.operation_name in ["isEmpty", "notEmpty", "includes", "excludes"]:
                 return "Boolean"
-            if ast.operation_type == "sum":
-                return "Real"
+            if ast.operation_name == "sum":
+                inner_type = self._infer_class_name(ast.source, bindings)
+                return "Real" if "Real" in inner_type else "Integer"
             return self._infer_class_name(ast.source, bindings)
 
         elif ast.type == "BinaryExpression":
@@ -1147,7 +1110,7 @@ class OCLZ3Translator:
             return ast.literal_type
 
         elif ast.type == "IfExpression":
-            return self._infer_class_name(ast.then_expr, bindings)
+            return self._infer_class_name(ast.then_expression, bindings)
 
         elif ast.type == "LetExpression":
             return self._infer_class_name(ast.body, bindings)
@@ -1155,7 +1118,7 @@ class OCLZ3Translator:
         return "Unknown"
 
     def _get_element_class_name(self, owner_class: str, prop_name: str) -> str:
-        uml_ctx = self.me.uml_context.get(owner_class, {})
+        uml_ctx = self.encoder.uml_context.get(owner_class, {})
 
         assoc_type = uml_ctx.get("associations", {}).get(prop_name, "")
         if assoc_type:
@@ -1165,7 +1128,6 @@ class OCLZ3Translator:
             match_opt = re.match(r'(\w+)\[', assoc_type)
             if match_opt:
                 return match_opt.group(1)
-            # 缺陷 4 修复：兜底提取
             return re.sub(r'[^a-zA-Z0-9_]', '', assoc_type)
 
         attr_type = uml_ctx.get("attributes", {}).get(prop_name, "")
@@ -1197,11 +1159,6 @@ class OCLZ3Translator:
         raise NotImplementedError(f"Relational op: {op}")
 
     def _linear_multiply(self, cnt: Any, val: Any, max_cnt: int) -> Any:
-        """
-        将符号整数 cnt 与 Z3 值 val 相乘，展开为条件加法，避免非线性算术。
-        假设 cnt 的范围是 [0, max_cnt]。
-        """
-        # 1. 严格的 Sort 匹配，拒接非法类型
         if is_real(val):
             zero = RealVal(0)
         elif is_int(val):
@@ -1211,207 +1168,344 @@ class OCLZ3Translator:
                 f"Z3 Compilation Error: Cannot perform linear multiplication on non-numeric sort {val.sort()}."
             )
 
-        # 2. 边界裁剪
         if max_cnt <= 0:
             return zero
 
-        # 3. 针对 Set 语义 (max_cnt == 1) 的极速优化
-        # 使用 cnt > 0 比 cnt == 1 更具防御性
         if max_cnt == 1:
             return If(cnt > 0, val, zero)
 
-        # 4. 一般 Bag 语义的线性展开 (例如 max_cnt = 3)
         terms = []
         for i in range(1, max_cnt + 1):
             terms.append(If(cnt >= i, val, zero))
-
         return Sum(*terms)
 
-# ==========================================
-# 组件 3 & 4：基于蕴含关系的定性分级判定
-# ==========================================
 
-def check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var, case_key: str, constraint_name: str) -> dict:
-    """基于 Z3 蕴含关系判定，返回结构化结果（含反例）"""
-    null_const = meta_encoder.null_consts[context_class]
-    gt_forall = ForAll([self_var], Implies(self_var != null_const, gt_expr))
-    llm_forall = ForAll([self_var], Implies(self_var != null_const, llm_expr))
+def check_equivalence(solver, gt_forall, llm_forall, encoder,
+                      context_class, self_var, case_key: str,
+                      constraint_name: str, ablation_config=None) -> dict:
+    solving_time = 0.0
+    is_llm_stricter = False
+    is_llm_looser = False
+    strengthened_ce = None
+    weakened_ce = None
+    timeout_hit = False
 
-    dump_formula(case_key, constraint_name, "GT_Quantified_Axiom", gt_forall)
-    dump_formula(case_key, constraint_name, "LLM_Quantified_Axiom", llm_forall)
+    solver.push()
+    solver.add(gt_forall)
+    solver.add(Not(llm_forall))
 
-    s = Solver()
-    s.add(meta_encoder.axioms)
+    solve_start = time.perf_counter()
+    res1 = solver.check()
+    solve_end = time.perf_counter()
+    solving_time += (solve_end - solve_start)
 
-    # 判定 1: 寻找 LLM 是否排除了 GT 的合法状态 (即 LLM 更严格/强化)
-    # 逻辑条件：GT 成立 且 LLM 不成立
-    s.push()
-    s.add(gt_forall)
-    s.add(Not(llm_forall))
-    is_llm_stricter = (s.check() == sat)
-    # 修正配套：更严格对应强化反例
-    strengthened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_llm_stricter else None
-    s.pop()
+    if res1 == sat:
+        is_llm_stricter = True
+        strengthened_ce = extract_counterexample(
+            solver, encoder, context_class, self_var)
+    elif res1 == unknown:
+        timeout_hit = True
+        solving_time = max(solving_time, Z3_TIMEOUT_MS / 1000.0)
 
-    # 判定 2: 寻找 LLM 是否放行了 GT 的非法状态 (即 LLM 更宽松/弱化)
-    # 逻辑条件：LLM 成立 且 GT 不成立
-    s.push()
-    s.add(llm_forall)
-    s.add(Not(gt_forall))
-    is_llm_looser = (s.check() == sat)
-    # 修正配套：更宽松对应弱化反例
-    weakened_ce = extract_counterexample(s, meta_encoder, context_class, self_var) if is_llm_looser else None
-    s.pop()
+    solver.pop()
+    solver.push()
+    solver.add(llm_forall)
+    solver.add(Not(gt_forall))
 
-    # 定性分级
-    if not is_llm_stricter and not is_llm_looser:
+    solve_start = time.perf_counter()
+    res2 = solver.check()
+    solve_end = time.perf_counter()
+    solving_time += (solve_end - solve_start)
+
+    if res2 == sat:
+        is_llm_looser = True
+        weakened_ce = extract_counterexample(
+            solver, encoder, context_class, self_var)
+    elif res2 == unknown:
+        timeout_hit = True
+        solving_time = max(solving_time, Z3_TIMEOUT_MS / 1000.0)
+
+    solver.pop()
+    if timeout_hit:
+        result = "TIMEOUT"
+    elif not is_llm_stricter and not is_llm_looser:
         result = "EQUIVALENT"
     elif is_llm_stricter and not is_llm_looser:
-        result = "STRENGTHENED"  # LLM 约束更强，排除了合法状态
+        result = "STRENGTHENED"
     elif not is_llm_stricter and is_llm_looser:
-        result = "WEAKENED"  # LLM 约束更弱，放行了非法状态
+        result = "WEAKENED"
     else:
         result = "INCOMPARABLE"
 
     return {
         "result": result,
-        "score": {"EQUIVALENT": 100, "STRENGTHENED": 60, "WEAKENED": 40, "INCOMPARABLE": 0}[result],
         "weakened_counterexample": weakened_ce,
-        "strengthened_counterexample": strengthened_ce
+        "strengthened_counterexample": strengthened_ce,
+        "solving_time_sec": solving_time,
+        "timeout_hit": timeout_hit
     }
 
-# ==========================================
-# 主控流水线
-# ==========================================
-def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression, uml_context: dict, context_class: str, case_key: str, constraint_name: str) -> dict:
-    """
-    评估 GT 与 LLM 约束的等价性，返回包含判定结果、分数和反例的结构化字典。
-    """
-    # 1. 预检：防御性隔离，确保 LLM 的 AST 可翻译
-    is_translatable, err_msg = check_z3_translatable(llm_ast, uml_context, context_class)
-    if not is_translatable:
-        # 编译失败，逻辑必然不等价，直接返回 0 分及空反例
-        return {
-            "result": "INCOMPARABLE",
-            "score": 0.0,
-            "weakened_counterexample": None,
-            "strengthened_counterexample": None,
-            "compilation_error": err_msg  # 附带编译错误信息供主程序参考
-        }
+def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
+                        uml_context: dict, context_class: str,
+                        case_key: str, constraint_name: str,
+                        cegar_round: int = 0,
+                        ablation_config=None) -> dict:
 
-    meta_encoder = BoundedMetamodelEncoder(uml_context, scope=3)
 
-    self_var = Const("self", meta_encoder.sorts[context_class])
-    var_bindings = {"context_class": context_class, "self": self_var}
+    gc.disable()
+    total_start = time.perf_counter()
+    safety_solving_time = 0.0
+    vacuity_solving_time = 0.0
+    safety_timeout = False
+    vacuity_timeout = False
+    encoding_time = 0.0
 
-    translator = OCLZ3Translator(meta_encoder)
-    gt_expr, gt_safety = translator.translate(gt_ast, var_bindings)
-    llm_expr, llm_safety = translator.translate(llm_ast, var_bindings)
-    null_const = meta_encoder.null_consts[context_class]
+    def _abl_enabled(flag_name: str) -> bool:
 
-    if gt_safety:
-        s_safety = Solver()
-        s_safety.add(meta_encoder.axioms)
-        s_safety.add(self_var != null_const)  # 仅在 self 有效时讨论约束语义
-        s_safety.add(Not(And(*gt_safety)))  # 尝试寻找违反安全条件的模型 (即触发 Invalid 的路径)
+        if ablation_config is None:
+            return True
+        return ablation_config.is_enabled(flag_name)
 
-        # 如果 Z3 找到了使 GT 不安全的模型，说明 GT 自身存在 Null/Invalid 解引用
-        if s_safety.check() == sat:
-            return {
-                "result": "INCOMPARABLE",
-                "score": 0.0,
+    try:
+
+        if _abl_enabled("enable_layer3_z3_compile"):
+            is_translatable, err_msg = check_z3_translatable(
+                llm_ast, uml_context, context_class)
+            if not is_translatable:
+                total_end = time.perf_counter()
+                result = {
+                    "result": "INCOMPARABLE",
+                    "weakened_counterexample": None,
+                    "strengthened_counterexample": None,
+                    "compilation_error": err_msg,
+                    "encoding_time_sec": 0.0,
+                    "solving_time_sec": 0.0,
+                    "total_pipeline_time_sec": total_end - total_start,
+                    "timeout_hit": False
+                }
+
+        encoding_start = time.perf_counter()
+        encoder = BoundedUMLModelEncoder(uml_context, scope=5)
+        self_var = Const("self", encoder.sorts[context_class])
+        var_bindings = {"context_class": context_class, "self": self_var}
+        translator = OCLZ3Translator(encoder)
+        gt_expr, gt_safety = translator.translate(gt_ast, var_bindings)
+        llm_expr, llm_safety = translator.translate(llm_ast, var_bindings)
+        null_const = encoder.null_consts[context_class]
+
+        if _abl_enabled("enable_safety_injection"):
+            if gt_safety:
+                gt_expr = And(And(*gt_safety), gt_expr)
+            if llm_safety:
+                llm_expr = And(And(*llm_safety), llm_expr)
+
+        gt_forall = ForAll([self_var],
+                           Implies(self_var != null_const, gt_expr))
+        llm_forall = ForAll([self_var],
+                            Implies(self_var != null_const, llm_expr))
+
+        s = Solver()
+        s.set("timeout", Z3_TIMEOUT_MS)
+        s.add(encoder.axioms)
+
+        encoding_end = time.perf_counter()
+        encoding_time = encoding_end - encoding_start
+
+        if gt_safety:
+            s.push()
+            s.add(self_var != null_const)
+            s.add(Not(And(*gt_safety)))
+
+            solve_start = time.perf_counter()
+            safety_result = s.check()
+            solve_end = time.perf_counter()
+            safety_solving_time = solve_end - solve_start
+
+            if safety_result == unknown:
+                safety_timeout = True
+                safety_solving_time = Z3_TIMEOUT_MS / 1000.0
+
+            s.pop()
+
+            if safety_result == sat:
+                total_end = time.perf_counter()
+                result = {
+                    "result": "INVALID_REF",
+                    "weakened_counterexample": None,
+                    "strengthened_counterexample": None,
+                    "compilation_error": (
+                        "Unsafe GT: Ground Truth contains potential "
+                        "null/invalid dereference. "
+                        "Equivalence is semantically undefined."),
+                    "encoding_time_sec": encoding_time,
+                    "solving_time_sec": safety_solving_time,
+                    "total_pipeline_time_sec": total_end - total_start,
+                    "timeout_hit": safety_timeout
+                }
+
+        if _abl_enabled("enable_vacuity_check"):
+            s.push()
+            s.add(gt_forall)
+
+            solve_start = time.perf_counter()
+            vacuity_result = s.check()
+            solve_end = time.perf_counter()
+            vacuity_solving_time = solve_end - solve_start
+
+            if vacuity_result == unknown:
+                vacuity_timeout = True
+                vacuity_solving_time = Z3_TIMEOUT_MS / 1000.0
+
+            s.pop()
+
+            if vacuity_result == unsat:
+                total_end = time.perf_counter()
+                result = {
+                    "result": "INVALID_REF",
+                    "weakened_counterexample": None,
+                    "strengthened_counterexample": None,
+                    "compilation_error": (
+                        "Vacuous Truth: GT is UNSAT within bounded scope. "
+                        "Increase scope or skip."),
+                    "encoding_time_sec": encoding_time,
+                    "solving_time_sec": safety_solving_time + vacuity_solving_time,
+                    "total_pipeline_time_sec": total_end - total_start,
+                    "timeout_hit": safety_timeout or vacuity_timeout
+                }
+
+        if _abl_enabled("enable_layer3_z3_equivalence"):
+            eq_result = check_equivalence(
+                s, gt_forall, llm_forall, encoder,
+                context_class, self_var, case_key, constraint_name)
+        else:
+            eq_result = {
+                "result": "ABLATION_SKIPPED",
                 "weakened_counterexample": None,
                 "strengthened_counterexample": None,
-                "compilation_error": "Unsafe GT: Ground Truth contains potential null/invalid dereference. Equivalence is semantically undefined."
+                "compilation_error": None,
+                "solving_time_sec": 0.0,
+                "timeout_hit": False
             }
 
-    # 终极收口：将顶层残留安全条件合取注入
-    if gt_safety:
-        gt_expr = And(And(*gt_safety), gt_expr)
-    if llm_safety:
-        llm_expr = And(And(*llm_safety), llm_expr)
+        total_end = time.perf_counter()
+        total_solving = (safety_solving_time + vacuity_solving_time
+                         + eq_result.get("solving_time_sec", 0.0))
+        eq_result["encoding_time_sec"] = encoding_time
+        eq_result["solving_time_sec"] = total_solving
+        eq_result["total_pipeline_time_sec"] = total_end - total_start
+        eq_result["timeout_hit"] = (
+            eq_result.get("timeout_hit", False)
+            or safety_timeout or vacuity_timeout)
 
-    dump_formula(case_key, constraint_name, "GT_Translated_Expr", gt_expr)
-    dump_formula(case_key, constraint_name, "LLM_Translated_Expr", llm_expr)
+    finally:
+        gc.enable()
+        gc.collect()
 
-    null_const = meta_encoder.null_consts[context_class]
-    s_pre = Solver()
-    s_pre.add(meta_encoder.axioms)
-    s_pre.add(ForAll([self_var], Implies(self_var != null_const, gt_expr)))
-    if s_pre.check() == unsat:
-        return {
-            "result": "INCOMPARABLE",
-            "score": 0.0,
-            "weakened_counterexample": None,
-            "strengthened_counterexample": None,
-            "compilation_error": "Vacuous Truth: GT is UNSAT within bounded scope. Increase scope or skip."
-        }
+def check_z3_translatable(llm_ast: OCLExpression, uml_context: dict,
+                          context_class: str, ablation_config=None) -> tuple:
 
-    # 5. 基于蕴含关系的定性分级判定（直接返回字典）
-    return check_equivalence(gt_expr, llm_expr, meta_encoder, context_class, self_var,case_key, constraint_name)
-
-def check_z3_translatable(llm_ast: OCLExpression, uml_context: dict, context_class: str) -> tuple:
     try:
-        meta_encoder = BoundedMetamodelEncoder(uml_context, scope=1)
-        self_var = Const("self", meta_encoder.sorts[context_class])
+        encoder = BoundedUMLModelEncoder(uml_context, scope=1)
+        self_var = Const("self", encoder.sorts[context_class])
         var_bindings = {"context_class": context_class, "self": self_var}
-        translator = OCLZ3Translator(meta_encoder)
+        translator = OCLZ3Translator(encoder)
         translator.translate(llm_ast, var_bindings)
         return True, None
     except RuntimeError:
-        raise  # 翻译器 Bug，必须崩溃，绝不能反馈给 LLM
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
         return False, f"Z3 Compilation Error: {type(e).__name__}: {e}"
 
 
-def extract_counterexample(solver: Solver, meta_encoder: BoundedMetamodelEncoder,
-                           context_class: str, self_var) -> str:
-    """从 Z3 sat 的 solver 中提取人类可读的反例状态描述"""
+def extract_counterexample(solver, encoder, context_class, self_var) -> str:
     model = solver.model()
+    sort = encoder.sorts[context_class]
+    null_const = encoder.null_consts[context_class]
+    scope = encoder.scope
+    lines = []
 
-    # 1. 确定 self 的具体值
-    self_val = model.eval(self_var, model_completion=True)
-    lines = [f"Counter-example state: self = {self_val}"]
+    def _get_inst_attrs_str(inst, class_name, depth=1):
 
-    # 2. 遍历当前 self 的所有属性值
-    sort = meta_encoder.sorts[context_class]
-    cls_info = meta_encoder.uml_context.get(context_class, {})
+        if depth < 0:
+            return ""
+        cls_info = encoder.uml_context.get(class_name, {})
+        parts = []
 
-    for attr_name, attr_type in cls_info.get("attributes", {}).items():
-        func_key = f"{context_class}.{attr_name}"
-        if func_key in meta_encoder.attr_funcs:
-            val = model.eval(meta_encoder.attr_funcs[func_key](self_val), model_completion=True)
-            lines.append(f"  self.{attr_name} = {val}")
+        for attr_name, attr_type in cls_info.get("attributes", {}).items():
+            func_key = f"{class_name}.{attr_name}"
+            if func_key in encoder.attr_funcs:
+                val = model.eval(encoder.attr_funcs[func_key](inst), model_completion=True)
+                parts.append(f"{attr_name}={val}")
 
-    # 3. 遍历当前 self 的所有关联
-    for assoc_name, assoc_type in cls_info.get("associations", {}).items():
-        func_key = f"{context_class}.{assoc_name}"
-        if func_key in meta_encoder.assoc_funcs:
-            meta = meta_encoder.assoc_meta[func_key]
-            if meta["is_count"]:
-                # 集合关联：报告每个目标实例的计数
-                parts = []
-                for tgt_inst in meta_encoder.get_valid_instances(meta["tgt_class"]):
-                    cnt = model.eval(
-                        meta_encoder.assoc_funcs[func_key](self_val, tgt_inst),
-                        model_completion=True
-                    )
-                    if is_int_value(cnt):
-                        cnt_int = cnt.as_long()
+        if depth > 0:
+            for assoc_name, assoc_type in cls_info.get("associations", {}).items():
+                func_key = f"{class_name}.{assoc_name}"
+                if func_key in encoder.assoc_funcs:
+                    meta = encoder.assoc_meta[func_key]
+                    tgt_class = meta["tgt_class"]
+                    tgt_null = encoder.null_consts.get(tgt_class)
+
+                    if meta["is_count"]:
+                        coll_parts = []
+                        for tgt_inst in encoder.get_valid_instances(tgt_class):
+                            cnt = model.eval(encoder.assoc_funcs[func_key](inst, tgt_inst), model_completion=True)
+                            cnt_int = cnt.as_long() if is_int_value(cnt) else str(cnt)
+                            if cnt_int != 0:
+                                tgt_attrs_str = _get_inst_attrs_str(tgt_inst, tgt_class, depth - 1)
+                                coll_parts.append(f"{tgt_inst}(count={cnt_int}){tgt_attrs_str}")
+                        if coll_parts:
+                            parts.append(f"{assoc_name}=[{', '.join(coll_parts)}]")
                     else:
-                        cnt_int = str(cnt)
-                    if cnt_int != 0:
-                        parts.append(f"{tgt_inst}(count={cnt_int})")
-                if parts:
-                    lines.append(f"  self.{assoc_name}: {', '.join(parts)}")
-            else:
-                # 单值关联：报告导航目标
-                tgt_val = model.eval(
-                    meta_encoder.assoc_funcs[func_key](self_val),
-                    model_completion=True
-                )
-                lines.append(f"  self.{assoc_name} = {tgt_val}")
+                        tgt_val = model.eval(encoder.assoc_funcs[func_key](inst), model_completion=True)
+                        if tgt_null is not None and tgt_val.eq(tgt_null):
+                            parts.append(f"{assoc_name}={tgt_val}")
+                        else:
+                            tgt_attrs_str = _get_inst_attrs_str(tgt_val, tgt_class, depth - 1)
+                            parts.append(f"{assoc_name}={tgt_val}{tgt_attrs_str}")
 
-    return "\n".join(lines)
+        return f"{{{', '.join(parts)}}}" if parts else ""
+
+    for i in range(scope):
+        inst = getattr(sort, f'{context_class.lower()}_{i}')
+        lines.append(f"\n--- Candidate: {inst} ---")
+        lines.append(f" self = {inst}")
+
+
+        cls_info = encoder.uml_context.get(context_class, {})
+        for attr_name, attr_type in cls_info.get("attributes", {}).items():
+            func_key = f"{context_class}.{attr_name}"
+            if func_key in encoder.attr_funcs:
+                val = model.eval(encoder.attr_funcs[func_key](inst), model_completion=True)
+                lines.append(f" self.{attr_name} = {val}")
+
+
+        for assoc_name, assoc_type in cls_info.get("associations", {}).items():
+            func_key = f"{context_class}.{assoc_name}"
+            if func_key in encoder.assoc_funcs:
+                meta = encoder.assoc_meta[func_key]
+                tgt_class = meta["tgt_class"]
+                tgt_null = encoder.null_consts.get(tgt_class)
+
+                if meta["is_count"]:
+                    parts = []
+                    for tgt_inst in encoder.get_valid_instances(tgt_class):
+                        cnt = model.eval(encoder.assoc_funcs[func_key](inst, tgt_inst), model_completion=True)
+                        cnt_int = cnt.as_long() if is_int_value(cnt) else str(cnt)
+                        if cnt_int != 0:
+
+                            tgt_attrs_str = _get_inst_attrs_str(tgt_inst, tgt_class, 1)
+                            parts.append(f"{tgt_inst}(count={cnt_int}) {tgt_attrs_str}")
+                    if parts:
+                        lines.append(f" self.{assoc_name}: {', '.join(parts)}")
+                else:
+                    tgt_val = model.eval(encoder.assoc_funcs[func_key](inst), model_completion=True)
+                    if tgt_null is not None and tgt_val.eq(tgt_null):
+                        lines.append(f" self.{assoc_name} = {tgt_val}")
+                    else:
+                        tgt_attrs_str = _get_inst_attrs_str(tgt_val, tgt_class, 1)
+                        lines.append(f" self.{assoc_name} = {tgt_val} {tgt_attrs_str}")
+
+    header = f"Counter-example state (all {scope} bounded instances shown):\n"
+    return header + "\n".join(lines)
