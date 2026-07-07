@@ -1285,7 +1285,7 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
                 }
 
         encoding_start = time.perf_counter()
-        encoder = BoundedUMLModelEncoder(uml_context, scope=5)
+        encoder = BoundedUMLModelEncoder(uml_context, scope=3)
         self_var = Const("self", encoder.sorts[context_class])
         var_bindings = {"context_class": context_class, "self": self_var}
         translator = OCLZ3Translator(encoder)
