@@ -1,0 +1,4979 @@
+{
+  "case_01_Employee": {
+    "case_key": "case_01_Employee",
+    "model": "CompanyModel",
+    "status": "CONSISTENT",
+    "num_constraints": 2,
+    "constraints": [
+      {
+        "name": "Employee_PositiveSalary",
+        "context_class": "Employee"
+      },
+      {
+        "name": "Employee_AdultAge",
+        "context_class": "Employee"
+      }
+    ],
+    "solving_time_sec": 0.003,
+    "scope": 3,
+    "witness_state": {
+      "Company": [
+        {
+          "id": "company_0",
+          "attributes": {},
+          "associations": {
+            "employees": []
+          }
+        },
+        {
+          "id": "company_1",
+          "attributes": {},
+          "associations": {
+            "employees": []
+          }
+        },
+        {
+          "id": "company_2",
+          "attributes": {},
+          "associations": {
+            "employees": []
+          }
+        }
+      ],
+      "Employee": [
+        {
+          "id": "employee_0",
+          "attributes": {
+            "name": "\"\"",
+            "salary": "1/2",
+            "age": "19"
+          },
+          "associations": {
+            "company": "company_2"
+          }
+        },
+        {
+          "id": "employee_1",
+          "attributes": {
+            "name": "\"\"",
+            "salary": "1/2",
+            "age": "19"
+          },
+          "associations": {
+            "company": "company_2"
+          }
+        },
+        {
+          "id": "employee_2",
+          "attributes": {
+            "name": "\"\"",
+            "salary": "1/2",
+            "age": "19"
+          },
+          "associations": {
+            "company": "company_2"
+          }
+        }
+      ]
+    }
+  },
+  "case_02_CivilStatus": {
+    "case_key": "case_02_CivilStatus",
+    "model": "CivilStatus",
+    "status": "CONSISTENT",
+    "num_constraints": 3,
+    "constraints": [
+      {
+        "name": "Person_MaleHusband",
+        "context_class": "Person"
+      },
+      {
+        "name": "Person_FemaleWife",
+        "context_class": "Person"
+      },
+      {
+        "name": "Person_SpouseIsMarried",
+        "context_class": "Person"
+      }
+    ],
+    "solving_time_sec": 0.0022,
+    "scope": 3,
+    "witness_state": {
+      "Person": [
+        {
+          "id": "person_0",
+          "attributes": {
+            "name": "\"\"",
+            "gender": "\"\"",
+            "civstat": "\"\""
+          },
+          "associations": {
+            "husband": null,
+            "wife": null
+          }
+        },
+        {
+          "id": "person_1",
+          "attributes": {
+            "name": "\"\"",
+            "gender": "\"\"",
+            "civstat": "\"\""
+          },
+          "associations": {
+            "husband": null,
+            "wife": null
+          }
+        },
+        {
+          "id": "person_2",
+          "attributes": {
+            "name": "\"\"",
+            "gender": "\"\"",
+            "civstat": "\"\""
+          },
+          "associations": {
+            "husband": null,
+            "wife": null
+          }
+        }
+      ]
+    }
+  },
+  "case_03_CarRental": {
+    "case_key": "case_03_CarRental",
+    "model": "CarRental",
+    "status": "CONSISTENT",
+    "num_constraints": 1,
+    "constraints": [
+      {
+        "name": "Rental_CheckDates",
+        "context_class": "Rental"
+      }
+    ],
+    "solving_time_sec": 0.0023,
+    "scope": 3,
+    "witness_state": {
+      "Car": [
+        {
+          "id": "car_0",
+          "attributes": {
+            "regno": "\"\""
+          },
+          "associations": {
+            "rental": []
+          }
+        },
+        {
+          "id": "car_1",
+          "attributes": {
+            "regno": "\"\""
+          },
+          "associations": {
+            "rental": []
+          }
+        },
+        {
+          "id": "car_2",
+          "attributes": {
+            "regno": "\"\""
+          },
+          "associations": {
+            "rental": []
+          }
+        }
+      ],
+      "Rental": [
+        {
+          "id": "rental_0",
+          "attributes": {
+            "fromDate": "1",
+            "untilDate": "2"
+          },
+          "associations": {
+            "car": "car_1"
+          }
+        },
+        {
+          "id": "rental_1",
+          "attributes": {
+            "fromDate": "1",
+            "untilDate": "2"
+          },
+          "associations": {
+            "car": "car_1"
+          }
+        },
+        {
+          "id": "rental_2",
+          "attributes": {
+            "fromDate": "1",
+            "untilDate": "2"
+          },
+          "associations": {
+            "car": "car_1"
+          }
+        }
+      ]
+    }
+  },
+  "case_04_Department": {
+    "case_key": "case_04_Department",
+    "model": "Department",
+    "status": "CONSISTENT",
+    "num_constraints": 3,
+    "constraints": [
+      {
+        "name": "Dept_BudgetConstraint",
+        "context_class": "Dept"
+      },
+      {
+        "name": "Dept_MinStaff",
+        "context_class": "Dept"
+      },
+      {
+        "name": "Dept_AverageSalary",
+        "context_class": "Dept"
+      }
+    ],
+    "solving_time_sec": 0.0054,
+    "scope": 3,
+    "witness_state": {
+      "Dept": [
+        {
+          "id": "dept_0",
+          "attributes": {
+            "name": "\"\"",
+            "budget": "3"
+          },
+          "associations": {
+            "staff": [
+              {
+                "target": "employee_0",
+                "count": 1
+              },
+              {
+                "target": "employee_1",
+                "count": 1
+              },
+              {
+                "target": "employee_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "dept_1",
+          "attributes": {
+            "name": "\"\"",
+            "budget": "3"
+          },
+          "associations": {
+            "staff": [
+              {
+                "target": "employee_0",
+                "count": 1
+              },
+              {
+                "target": "employee_1",
+                "count": 1
+              },
+              {
+                "target": "employee_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "dept_2",
+          "attributes": {
+            "name": "\"\"",
+            "budget": "3"
+          },
+          "associations": {
+            "staff": [
+              {
+                "target": "employee_0",
+                "count": 1
+              },
+              {
+                "target": "employee_1",
+                "count": 1
+              },
+              {
+                "target": "employee_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Employee": [
+        {
+          "id": "employee_0",
+          "attributes": {
+            "name": "\"\"",
+            "salary": "1"
+          },
+          "associations": {
+            "dept": "dept_0"
+          }
+        },
+        {
+          "id": "employee_1",
+          "attributes": {
+            "name": "\"\"",
+            "salary": "1"
+          },
+          "associations": {
+            "dept": "dept_0"
+          }
+        },
+        {
+          "id": "employee_2",
+          "attributes": {
+            "name": "\"\"",
+            "salary": "1"
+          },
+          "associations": {
+            "dept": "dept_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_05_Graph": {
+    "case_key": "case_05_Graph",
+    "model": "Graph",
+    "status": "CONSISTENT",
+    "num_constraints": 3,
+    "constraints": [
+      {
+        "name": "Edge_NoBidirectionalSelfLoop",
+        "context_class": "Node"
+      },
+      {
+        "name": "Edge_NoSelfLoop",
+        "context_class": "Edge"
+      },
+      {
+        "name": "Node_EdgeBagVsSet",
+        "context_class": "Node"
+      }
+    ],
+    "solving_time_sec": 0.0059,
+    "scope": 3,
+    "witness_state": {
+      "Node": [
+        {
+          "id": "node_0",
+          "attributes": {},
+          "associations": {
+            "outEdges": [],
+            "inEdges": [
+              {
+                "target": "edge_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "node_1",
+          "attributes": {},
+          "associations": {
+            "outEdges": [],
+            "inEdges": [
+              {
+                "target": "edge_0",
+                "count": 1
+              },
+              {
+                "target": "edge_1",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "node_2",
+          "attributes": {},
+          "associations": {
+            "outEdges": [],
+            "inEdges": [
+              {
+                "target": "edge_1",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Edge": [
+        {
+          "id": "edge_0",
+          "attributes": {},
+          "associations": {
+            "source": "node_1",
+            "target": "node_0"
+          }
+        },
+        {
+          "id": "edge_1",
+          "attributes": {},
+          "associations": {
+            "source": "node_1",
+            "target": "node_0"
+          }
+        },
+        {
+          "id": "edge_2",
+          "attributes": {},
+          "associations": {
+            "source": "node_1",
+            "target": "node_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_06_RoyalAndLoyal": {
+    "case_key": "case_06_RoyalAndLoyal",
+    "model": "RoyalAndLoyal",
+    "status": "CONSISTENT",
+    "num_constraints": 3,
+    "constraints": [
+      {
+        "name": "LoyaltyAccount_AdultMembership",
+        "context_class": "LoyaltyAccount"
+      },
+      {
+        "name": "LoyaltyAccount_NoNegativePoints",
+        "context_class": "LoyaltyAccount"
+      },
+      {
+        "name": "LoyaltyAccount_MaleProgram",
+        "context_class": "LoyaltyAccount"
+      }
+    ],
+    "solving_time_sec": 0.0035,
+    "scope": 3,
+    "witness_state": {
+      "Customer": [
+        {
+          "id": "customer_0",
+          "attributes": {
+            "age": "1",
+            "male": "False"
+          },
+          "associations": {
+            "accounts": []
+          }
+        },
+        {
+          "id": "customer_1",
+          "attributes": {
+            "age": "1",
+            "male": "False"
+          },
+          "associations": {
+            "accounts": []
+          }
+        },
+        {
+          "id": "customer_2",
+          "attributes": {
+            "age": "18",
+            "male": "False"
+          },
+          "associations": {
+            "accounts": []
+          }
+        }
+      ],
+      "LoyaltyProgram": [
+        {
+          "id": "loyaltyprogram_0",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "accounts": []
+          }
+        },
+        {
+          "id": "loyaltyprogram_1",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "accounts": []
+          }
+        },
+        {
+          "id": "loyaltyprogram_2",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "accounts": []
+          }
+        }
+      ],
+      "LoyaltyAccount": [
+        {
+          "id": "loyaltyaccount_0",
+          "attributes": {
+            "points": "1"
+          },
+          "associations": {
+            "owner": "customer_2",
+            "program": "loyaltyprogram_1"
+          }
+        },
+        {
+          "id": "loyaltyaccount_1",
+          "attributes": {
+            "points": "1"
+          },
+          "associations": {
+            "owner": "customer_2",
+            "program": "loyaltyprogram_1"
+          }
+        },
+        {
+          "id": "loyaltyaccount_2",
+          "attributes": {
+            "points": "1"
+          },
+          "associations": {
+            "owner": "customer_2",
+            "program": "loyaltyprogram_1"
+          }
+        }
+      ]
+    }
+  },
+  "case_07_Project": {
+    "case_key": "case_07_Project",
+    "model": "ProjectSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 1,
+    "constraints": [
+      {
+        "name": "Project_BudgetSufficiency",
+        "context_class": "Project"
+      }
+    ],
+    "solving_time_sec": 0.0032,
+    "scope": 3,
+    "witness_state": {
+      "Employee": [
+        {
+          "id": "employee_0",
+          "attributes": {
+            "salary": "1"
+          },
+          "associations": {
+            "projects": []
+          }
+        },
+        {
+          "id": "employee_1",
+          "attributes": {
+            "salary": "31122"
+          },
+          "associations": {
+            "projects": []
+          }
+        },
+        {
+          "id": "employee_2",
+          "attributes": {
+            "salary": "1"
+          },
+          "associations": {
+            "projects": []
+          }
+        }
+      ],
+      "Project": [
+        {
+          "id": "project_0",
+          "attributes": {
+            "budget": "31124"
+          },
+          "associations": {
+            "members": [
+              {
+                "target": "employee_0",
+                "count": 1
+              },
+              {
+                "target": "employee_1",
+                "count": 1
+              },
+              {
+                "target": "employee_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "project_1",
+          "attributes": {
+            "budget": "31124"
+          },
+          "associations": {
+            "members": [
+              {
+                "target": "employee_0",
+                "count": 1
+              },
+              {
+                "target": "employee_1",
+                "count": 1
+              },
+              {
+                "target": "employee_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "project_2",
+          "attributes": {
+            "budget": "31124"
+          },
+          "associations": {
+            "members": [
+              {
+                "target": "employee_0",
+                "count": 1
+              },
+              {
+                "target": "employee_1",
+                "count": 1
+              },
+              {
+                "target": "employee_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "case_08_Polygon": {
+    "case_key": "case_08_Polygon",
+    "model": "PolygonSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 1,
+    "constraints": [
+      {
+        "name": "Polygon_NoThreeConsecutiveCollinear",
+        "context_class": "Polygon"
+      }
+    ],
+    "solving_time_sec": 0.0036,
+    "scope": 3,
+    "witness_state": {
+      "Point": [
+        {
+          "id": "point_0",
+          "attributes": {
+            "x": "1",
+            "y": "1"
+          },
+          "associations": {
+            "polygon": "polygon_0"
+          }
+        },
+        {
+          "id": "point_1",
+          "attributes": {
+            "x": "2",
+            "y": "1"
+          },
+          "associations": {
+            "polygon": "polygon_0"
+          }
+        },
+        {
+          "id": "point_2",
+          "attributes": {
+            "x": "2",
+            "y": "2"
+          },
+          "associations": {
+            "polygon": "polygon_0"
+          }
+        }
+      ],
+      "Polygon": [
+        {
+          "id": "polygon_0",
+          "attributes": {},
+          "associations": {
+            "points": []
+          }
+        },
+        {
+          "id": "polygon_1",
+          "attributes": {},
+          "associations": {
+            "points": []
+          }
+        },
+        {
+          "id": "polygon_2",
+          "attributes": {},
+          "associations": {
+            "points": []
+          }
+        }
+      ]
+    }
+  },
+  "case_09_Company": {
+    "case_key": "case_09_Company",
+    "model": "CompanySystem",
+    "status": "CONSISTENT",
+    "num_constraints": 3,
+    "constraints": [
+      {
+        "name": "Employee_NoSelfManager",
+        "context_class": "Employee"
+      },
+      {
+        "name": "Employee_ManagerSalary",
+        "context_class": "Employee"
+      },
+      {
+        "name": "Employee_SalaryCeiling",
+        "context_class": "Employee"
+      }
+    ],
+    "solving_time_sec": 0.0028,
+    "scope": 3,
+    "witness_state": {
+      "Employee": [
+        {
+          "id": "employee_0",
+          "attributes": {
+            "salary": "10749"
+          },
+          "associations": {
+            "subordinates": [],
+            "manager": "employee_2"
+          }
+        },
+        {
+          "id": "employee_1",
+          "attributes": {
+            "salary": "1"
+          },
+          "associations": {
+            "subordinates": [],
+            "manager": "employee_0"
+          }
+        },
+        {
+          "id": "employee_2",
+          "attributes": {
+            "salary": "10749"
+          },
+          "associations": {
+            "subordinates": [],
+            "manager": "employee_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_10_Stack": {
+    "case_key": "case_10_Stack",
+    "model": "StackSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 1,
+    "constraints": [
+      {
+        "name": "Stack_SizeNonNegative",
+        "context_class": "Stack"
+      }
+    ],
+    "solving_time_sec": 0.0015,
+    "scope": 3,
+    "witness_state": {
+      "Stack": [
+        {
+          "id": "stack_0",
+          "attributes": {
+            "elements": "1"
+          },
+          "associations": {}
+        },
+        {
+          "id": "stack_1",
+          "attributes": {
+            "elements": "1"
+          },
+          "associations": {}
+        },
+        {
+          "id": "stack_2",
+          "attributes": {
+            "elements": "1"
+          },
+          "associations": {}
+        }
+      ]
+    }
+  },
+  "case_11_Flight": {
+    "case_key": "case_11_Flight",
+    "model": "FlightSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 3,
+    "constraints": [
+      {
+        "name": "Flight_ArrivalAfterDeparture",
+        "context_class": "Flight"
+      },
+      {
+        "name": "Flight_CapacityCheck",
+        "context_class": "Flight"
+      },
+      {
+        "name": "Flight_CapacityUtilization",
+        "context_class": "Flight"
+      }
+    ],
+    "solving_time_sec": 0.0098,
+    "scope": 3,
+    "witness_state": {
+      "Plane": [
+        {
+          "id": "plane_0",
+          "attributes": {
+            "capacity": "2"
+          },
+          "associations": {
+            "flights": []
+          }
+        },
+        {
+          "id": "plane_1",
+          "attributes": {
+            "capacity": "1"
+          },
+          "associations": {
+            "flights": []
+          }
+        },
+        {
+          "id": "plane_2",
+          "attributes": {
+            "capacity": "1"
+          },
+          "associations": {
+            "flights": []
+          }
+        }
+      ],
+      "Flight": [
+        {
+          "id": "flight_0",
+          "attributes": {
+            "departureTime": "1",
+            "arrivalTime": "2"
+          },
+          "associations": {
+            "plane": "plane_0",
+            "passengers": []
+          }
+        },
+        {
+          "id": "flight_1",
+          "attributes": {
+            "departureTime": "1",
+            "arrivalTime": "2"
+          },
+          "associations": {
+            "plane": "plane_0",
+            "passengers": []
+          }
+        },
+        {
+          "id": "flight_2",
+          "attributes": {
+            "departureTime": "1",
+            "arrivalTime": "2"
+          },
+          "associations": {
+            "plane": "plane_0",
+            "passengers": []
+          }
+        }
+      ],
+      "Passenger": [
+        {
+          "id": "passenger_0",
+          "attributes": {},
+          "associations": {
+            "flight": []
+          }
+        },
+        {
+          "id": "passenger_1",
+          "attributes": {},
+          "associations": {
+            "flight": []
+          }
+        },
+        {
+          "id": "passenger_2",
+          "attributes": {},
+          "associations": {
+            "flight": []
+          }
+        }
+      ]
+    }
+  },
+  "case_12_Sudoku": {
+    "case_key": "case_12_Sudoku",
+    "model": "SudokuSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 2,
+    "constraints": [
+      {
+        "name": "Cell_ValueRange",
+        "context_class": "Cell"
+      },
+      {
+        "name": "Row_UniqueValues",
+        "context_class": "Row"
+      }
+    ],
+    "solving_time_sec": 0.0035,
+    "scope": 3,
+    "witness_state": {
+      "Row": [
+        {
+          "id": "row_0",
+          "attributes": {},
+          "associations": {
+            "cells": []
+          }
+        },
+        {
+          "id": "row_1",
+          "attributes": {},
+          "associations": {
+            "cells": []
+          }
+        },
+        {
+          "id": "row_2",
+          "attributes": {},
+          "associations": {
+            "cells": []
+          }
+        }
+      ],
+      "Cell": [
+        {
+          "id": "cell_0",
+          "attributes": {
+            "value": "3"
+          },
+          "associations": {
+            "row": "row_0"
+          }
+        },
+        {
+          "id": "cell_1",
+          "attributes": {
+            "value": "2"
+          },
+          "associations": {
+            "row": "row_0"
+          }
+        },
+        {
+          "id": "cell_2",
+          "attributes": {
+            "value": "1"
+          },
+          "associations": {
+            "row": "row_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_13_Library": {
+    "case_key": "case_13_Library",
+    "model": "LibrarySystem",
+    "status": "CONSISTENT",
+    "num_constraints": 2,
+    "constraints": [
+      {
+        "name": "Member_MaxBooks",
+        "context_class": "Member"
+      },
+      {
+        "name": "Member_NoLoanIfFined",
+        "context_class": "Member"
+      }
+    ],
+    "solving_time_sec": 0.0025,
+    "scope": 3,
+    "witness_state": {
+      "Member": [
+        {
+          "id": "member_0",
+          "attributes": {
+            "fine": "1/2"
+          },
+          "associations": {
+            "borrowedBooks": []
+          }
+        },
+        {
+          "id": "member_1",
+          "attributes": {
+            "fine": "1/2"
+          },
+          "associations": {
+            "borrowedBooks": []
+          }
+        },
+        {
+          "id": "member_2",
+          "attributes": {
+            "fine": "1/2"
+          },
+          "associations": {
+            "borrowedBooks": []
+          }
+        }
+      ],
+      "Book": [
+        {
+          "id": "book_0",
+          "attributes": {},
+          "associations": {
+            "borrower": "member_0"
+          }
+        },
+        {
+          "id": "book_1",
+          "attributes": {},
+          "associations": {
+            "borrower": "member_0"
+          }
+        },
+        {
+          "id": "book_2",
+          "attributes": {},
+          "associations": {
+            "borrower": "member_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_14_Vehicle": {
+    "case_key": "case_14_Vehicle",
+    "model": "VehicleSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 2,
+    "constraints": [
+      {
+        "name": "Car_DoorLimit",
+        "context_class": "Car"
+      },
+      {
+        "name": "Truck_LoadLimit",
+        "context_class": "Truck"
+      }
+    ],
+    "solving_time_sec": 0.0022,
+    "scope": 3,
+    "witness_state": {
+      "Vehicle": [
+        {
+          "id": "vehicle_0",
+          "attributes": {
+            "regNo": "\"\""
+          },
+          "associations": {}
+        },
+        {
+          "id": "vehicle_1",
+          "attributes": {
+            "regNo": "\"\""
+          },
+          "associations": {}
+        },
+        {
+          "id": "vehicle_2",
+          "attributes": {
+            "regNo": "\"\""
+          },
+          "associations": {}
+        }
+      ],
+      "Car": [
+        {
+          "id": "car_0",
+          "attributes": {
+            "doors": "2"
+          },
+          "associations": {}
+        },
+        {
+          "id": "car_1",
+          "attributes": {
+            "doors": "2"
+          },
+          "associations": {}
+        },
+        {
+          "id": "car_2",
+          "attributes": {
+            "doors": "2"
+          },
+          "associations": {}
+        }
+      ],
+      "Truck": [
+        {
+          "id": "truck_0",
+          "attributes": {
+            "maxLoad": "1001"
+          },
+          "associations": {}
+        },
+        {
+          "id": "truck_1",
+          "attributes": {
+            "maxLoad": "1001"
+          },
+          "associations": {}
+        },
+        {
+          "id": "truck_2",
+          "attributes": {
+            "maxLoad": "1001"
+          },
+          "associations": {}
+        }
+      ]
+    }
+  },
+  "case_15_Cinema": {
+    "case_key": "case_15_Cinema",
+    "model": "CinemaSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 2,
+    "constraints": [
+      {
+        "name": "Show_CapacityLimit",
+        "context_class": "Show"
+      },
+      {
+        "name": "Show_UniqueSeats",
+        "context_class": "Show"
+      }
+    ],
+    "solving_time_sec": 0.0037,
+    "scope": 3,
+    "witness_state": {
+      "Hall": [
+        {
+          "id": "hall_0",
+          "attributes": {
+            "capacity": "1"
+          },
+          "associations": {
+            "shows": []
+          }
+        },
+        {
+          "id": "hall_1",
+          "attributes": {
+            "capacity": "1"
+          },
+          "associations": {
+            "shows": []
+          }
+        },
+        {
+          "id": "hall_2",
+          "attributes": {
+            "capacity": "1"
+          },
+          "associations": {
+            "shows": []
+          }
+        }
+      ],
+      "Show": [
+        {
+          "id": "show_0",
+          "attributes": {},
+          "associations": {
+            "hall": "hall_0",
+            "tickets": []
+          }
+        },
+        {
+          "id": "show_1",
+          "attributes": {},
+          "associations": {
+            "hall": "hall_0",
+            "tickets": []
+          }
+        },
+        {
+          "id": "show_2",
+          "attributes": {},
+          "associations": {
+            "hall": "hall_0",
+            "tickets": []
+          }
+        }
+      ],
+      "Ticket": [
+        {
+          "id": "ticket_0",
+          "attributes": {
+            "seatNo": "3"
+          },
+          "associations": {
+            "show": "show_1"
+          }
+        },
+        {
+          "id": "ticket_1",
+          "attributes": {
+            "seatNo": "1"
+          },
+          "associations": {
+            "show": "show_1"
+          }
+        },
+        {
+          "id": "ticket_2",
+          "attributes": {
+            "seatNo": "2"
+          },
+          "associations": {
+            "show": "show_1"
+          }
+        }
+      ]
+    }
+  },
+  "case_16_Smart Climate Control System": {
+    "case_key": "case_16_Smart Climate Control System",
+    "model": "SmartClimate",
+    "status": "CONSISTENT",
+    "num_constraints": 7,
+    "constraints": [
+      {
+        "name": "Thermostat_ValidTargetTemp",
+        "context_class": "Thermostat"
+      },
+      {
+        "name": "Thermostat_PhysicsCheck",
+        "context_class": "Thermostat"
+      },
+      {
+        "name": "HVACUnit_ModeConflict",
+        "context_class": "HVACUnit"
+      },
+      {
+        "name": "Room_WindowOpenHVACStatus",
+        "context_class": "Room"
+      },
+      {
+        "name": "Building_MaxPowerLimit",
+        "context_class": "Building"
+      },
+      {
+        "name": "Room_SafetyEgress",
+        "context_class": "Room"
+      },
+      {
+        "name": "Room_AutoActivation",
+        "context_class": "Room"
+      }
+    ],
+    "solving_time_sec": 0.0102,
+    "scope": 3,
+    "witness_state": {
+      "Building": [
+        {
+          "id": "building_0",
+          "attributes": {
+            "maxPowerCapacity": "1"
+          },
+          "associations": {
+            "rooms": []
+          }
+        },
+        {
+          "id": "building_1",
+          "attributes": {
+            "maxPowerCapacity": "1"
+          },
+          "associations": {
+            "rooms": []
+          }
+        },
+        {
+          "id": "building_2",
+          "attributes": {
+            "maxPowerCapacity": "1"
+          },
+          "associations": {
+            "rooms": []
+          }
+        }
+      ],
+      "Room": [
+        {
+          "id": "room_0",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "building": "building_2",
+            "stat": "thermostat_0",
+            "windows": [
+              {
+                "target": "window_2",
+                "count": 1
+              }
+            ],
+            "hvac": "hvacunit_0"
+          }
+        },
+        {
+          "id": "room_1",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "building": "building_2",
+            "stat": "thermostat_0",
+            "windows": [
+              {
+                "target": "window_0",
+                "count": 1
+              }
+            ],
+            "hvac": "hvacunit_2"
+          }
+        },
+        {
+          "id": "room_2",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "building": "building_2",
+            "stat": "thermostat_0",
+            "windows": [
+              {
+                "target": "window_0",
+                "count": 1
+              }
+            ],
+            "hvac": "hvacunit_0"
+          }
+        }
+      ],
+      "Thermostat": [
+        {
+          "id": "thermostat_0",
+          "attributes": {
+            "currentTemp": "11",
+            "targetTemp": "16"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        },
+        {
+          "id": "thermostat_1",
+          "attributes": {
+            "currentTemp": "1/2",
+            "targetTemp": "16"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        },
+        {
+          "id": "thermostat_2",
+          "attributes": {
+            "currentTemp": "1/2",
+            "targetTemp": "16"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        }
+      ],
+      "Window": [
+        {
+          "id": "window_0",
+          "attributes": {
+            "isOpen": "False"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        },
+        {
+          "id": "window_1",
+          "attributes": {
+            "isOpen": "False"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        },
+        {
+          "id": "window_2",
+          "attributes": {
+            "isOpen": "False"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        }
+      ],
+      "HVACUnit": [
+        {
+          "id": "hvacunit_0",
+          "attributes": {
+            "isHeating": "False",
+            "isCooling": "False",
+            "isActive": "False",
+            "powerUsage": "1"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        },
+        {
+          "id": "hvacunit_1",
+          "attributes": {
+            "isHeating": "False",
+            "isCooling": "False",
+            "isActive": "False",
+            "powerUsage": "1"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        },
+        {
+          "id": "hvacunit_2",
+          "attributes": {
+            "isHeating": "False",
+            "isCooling": "False",
+            "isActive": "False",
+            "powerUsage": "1"
+          },
+          "associations": {
+            "room": "room_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_17_IoT Security & Access Hub": {
+    "case_key": "case_17_IoT Security & Access Hub",
+    "model": "IoTSecurity",
+    "status": "CONSISTENT",
+    "num_constraints": 5,
+    "constraints": [
+      {
+        "name": "User_MaxCards",
+        "context_class": "User"
+      },
+      {
+        "name": "SecurityHub_IntrusionAlert",
+        "context_class": "SecurityHub"
+      },
+      {
+        "name": "Zone_SecureBeforeArming",
+        "context_class": "Zone"
+      },
+      {
+        "name": "KeyCard_AccessLevelCheck",
+        "context_class": "KeyCard"
+      },
+      {
+        "name": "SecurityHub_NonNegativeTriggers",
+        "context_class": "SecurityHub"
+      }
+    ],
+    "solving_time_sec": 0.0076,
+    "scope": 3,
+    "witness_state": {
+      "SecurityHub": [
+        {
+          "id": "securityhub_0",
+          "attributes": {
+            "isAlertState": "False",
+            "currentYear": "1"
+          },
+          "associations": {
+            "zones": []
+          }
+        },
+        {
+          "id": "securityhub_1",
+          "attributes": {
+            "isAlertState": "False",
+            "currentYear": "1"
+          },
+          "associations": {
+            "zones": []
+          }
+        },
+        {
+          "id": "securityhub_2",
+          "attributes": {
+            "isAlertState": "False",
+            "currentYear": "1"
+          },
+          "associations": {
+            "zones": []
+          }
+        }
+      ],
+      "Zone": [
+        {
+          "id": "zone_0",
+          "attributes": {
+            "isArmed": "False",
+            "requiredLevel": "1"
+          },
+          "associations": {
+            "securityHub": "securityhub_1",
+            "sensors": [],
+            "keyCard": []
+          }
+        },
+        {
+          "id": "zone_1",
+          "attributes": {
+            "isArmed": "False",
+            "requiredLevel": "1"
+          },
+          "associations": {
+            "securityHub": "securityhub_1",
+            "sensors": [],
+            "keyCard": []
+          }
+        },
+        {
+          "id": "zone_2",
+          "attributes": {
+            "isArmed": "False",
+            "requiredLevel": "1"
+          },
+          "associations": {
+            "securityHub": "securityhub_1",
+            "sensors": [],
+            "keyCard": []
+          }
+        }
+      ],
+      "Sensor": [
+        {
+          "id": "sensor_0",
+          "attributes": {
+            "type": "\"\"",
+            "isTriggered": "False",
+            "isOpen": "False"
+          },
+          "associations": {
+            "zone": "zone_1"
+          }
+        },
+        {
+          "id": "sensor_1",
+          "attributes": {
+            "type": "\"!0!\"",
+            "isTriggered": "False",
+            "isOpen": "False"
+          },
+          "associations": {
+            "zone": "zone_1"
+          }
+        },
+        {
+          "id": "sensor_2",
+          "attributes": {
+            "type": "\"!1!\"",
+            "isTriggered": "False",
+            "isOpen": "False"
+          },
+          "associations": {
+            "zone": "zone_1"
+          }
+        }
+      ],
+      "User": [
+        {
+          "id": "user_0",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "cards": []
+          }
+        },
+        {
+          "id": "user_1",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "cards": []
+          }
+        },
+        {
+          "id": "user_2",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "cards": []
+          }
+        }
+      ],
+      "KeyCard": [
+        {
+          "id": "keycard_0",
+          "attributes": {
+            "accessLevel": "1",
+            "expiryYear": "1"
+          },
+          "associations": {
+            "user": "user_1",
+            "authorizedZones": []
+          }
+        },
+        {
+          "id": "keycard_1",
+          "attributes": {
+            "accessLevel": "1",
+            "expiryYear": "1"
+          },
+          "associations": {
+            "user": "user_1",
+            "authorizedZones": []
+          }
+        },
+        {
+          "id": "keycard_2",
+          "attributes": {
+            "accessLevel": "1",
+            "expiryYear": "1"
+          },
+          "associations": {
+            "user": "user_1",
+            "authorizedZones": []
+          }
+        }
+      ]
+    }
+  },
+  "case_18_Smart Microgrid Manager": {
+    "case_key": "case_18_Smart Microgrid Manager",
+    "model": "SmartMicrogrid",
+    "status": "CONSISTENT",
+    "num_constraints": 5,
+    "constraints": [
+      {
+        "name": "BatteryBank_ValidCharge",
+        "context_class": "BatteryBank"
+      },
+      {
+        "name": "Controller_BlackoutProtocol",
+        "context_class": "Controller"
+      },
+      {
+        "name": "SolarPanel_EfficiencyRange",
+        "context_class": "SolarPanel"
+      },
+      {
+        "name": "Controller_NonNegativeSolar",
+        "context_class": "Controller"
+      },
+      {
+        "name": "Controller_SolarCurtailment",
+        "context_class": "Controller"
+      }
+    ],
+    "solving_time_sec": 0.0064,
+    "scope": 3,
+    "witness_state": {
+      "Controller": [
+        {
+          "id": "controller_0",
+          "attributes": {
+            "islandMode": "False"
+          },
+          "associations": {
+            "grid": "gridconnection_2",
+            "battery": "batterybank_1",
+            "panels": [
+              {
+                "target": "solarpanel_0",
+                "count": 1
+              },
+              {
+                "target": "solarpanel_1",
+                "count": 1
+              },
+              {
+                "target": "solarpanel_2",
+                "count": 1
+              }
+            ],
+            "loads": []
+          }
+        },
+        {
+          "id": "controller_1",
+          "attributes": {
+            "islandMode": "False"
+          },
+          "associations": {
+            "grid": "gridconnection_2",
+            "battery": "batterybank_1",
+            "panels": [
+              {
+                "target": "solarpanel_0",
+                "count": 1
+              },
+              {
+                "target": "solarpanel_1",
+                "count": 1
+              },
+              {
+                "target": "solarpanel_2",
+                "count": 1
+              }
+            ],
+            "loads": []
+          }
+        },
+        {
+          "id": "controller_2",
+          "attributes": {
+            "islandMode": "False"
+          },
+          "associations": {
+            "grid": "gridconnection_2",
+            "battery": "batterybank_1",
+            "panels": [
+              {
+                "target": "solarpanel_0",
+                "count": 1
+              },
+              {
+                "target": "solarpanel_1",
+                "count": 1
+              },
+              {
+                "target": "solarpanel_2",
+                "count": 1
+              }
+            ],
+            "loads": []
+          }
+        }
+      ],
+      "GridConnection": [
+        {
+          "id": "gridconnection_0",
+          "attributes": {
+            "isDown": "False",
+            "importAmount": "1/2",
+            "isExporting": "False"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "gridconnection_1",
+          "attributes": {
+            "isDown": "False",
+            "importAmount": "1/2",
+            "isExporting": "False"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "gridconnection_2",
+          "attributes": {
+            "isDown": "False",
+            "importAmount": "1/2",
+            "isExporting": "False"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        }
+      ],
+      "BatteryBank": [
+        {
+          "id": "batterybank_0",
+          "attributes": {
+            "chargePercent": "1"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "batterybank_1",
+          "attributes": {
+            "chargePercent": "1"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "batterybank_2",
+          "attributes": {
+            "chargePercent": "1"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        }
+      ],
+      "SolarPanel": [
+        {
+          "id": "solarpanel_0",
+          "attributes": {
+            "currentOutput": "1/2",
+            "efficiencyMode": "1/2"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "solarpanel_1",
+          "attributes": {
+            "currentOutput": "1/2",
+            "efficiencyMode": "1/2"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "solarpanel_2",
+          "attributes": {
+            "currentOutput": "1/2",
+            "efficiencyMode": "1/2"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        }
+      ],
+      "Appliance": [
+        {
+          "id": "appliance_0",
+          "attributes": {
+            "priority": "1",
+            "consumption": "1/2",
+            "isOn": "False"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "appliance_1",
+          "attributes": {
+            "priority": "1",
+            "consumption": "1/2",
+            "isOn": "False"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        },
+        {
+          "id": "appliance_2",
+          "attributes": {
+            "priority": "1",
+            "consumption": "1/2",
+            "isOn": "False"
+          },
+          "associations": {
+            "controller": "controller_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_19_International Freight & Container Tracking": {
+    "case_key": "case_19_International Freight & Container Tracking",
+    "model": "FreightSystem",
+    "status": "CONSISTENT",
+    "num_constraints": 7,
+    "constraints": [
+      {
+        "name": "Vessel_CapacityLimit",
+        "context_class": "Vessel"
+      },
+      {
+        "name": "Container_PositiveWeight",
+        "context_class": "Container"
+      },
+      {
+        "name": "Vessel_ReefersNeedPower",
+        "context_class": "Vessel"
+      },
+      {
+        "name": "Shipment_HazardousClearance",
+        "context_class": "Shipment"
+      },
+      {
+        "name": "Vessel_CrewRequirement",
+        "context_class": "Vessel"
+      },
+      {
+        "name": "Shipment_ValidDates",
+        "context_class": "Shipment"
+      },
+      {
+        "name": "Port_BerthLimit",
+        "context_class": "Port"
+      }
+    ],
+    "solving_time_sec": 0.0112,
+    "scope": 3,
+    "witness_state": {
+      "Vessel": [
+        {
+          "id": "vessel_0",
+          "attributes": {
+            "name": "\"\"",
+            "maxTonnage": "1/2",
+            "hasPowerSupply": "False",
+            "isDocked": "True",
+            "crewCount": "1",
+            "minCrewReq": "1"
+          },
+          "associations": {
+            "cargo": [
+              {
+                "target": "container_0",
+                "count": 1
+              },
+              {
+                "target": "container_2",
+                "count": 1
+              }
+            ],
+            "port": "port_1"
+          }
+        },
+        {
+          "id": "vessel_1",
+          "attributes": {
+            "name": "\"\"",
+            "maxTonnage": "3/4",
+            "hasPowerSupply": "False",
+            "isDocked": "True",
+            "crewCount": "1",
+            "minCrewReq": "1"
+          },
+          "associations": {
+            "cargo": [
+              {
+                "target": "container_0",
+                "count": 1
+              },
+              {
+                "target": "container_1",
+                "count": 1
+              },
+              {
+                "target": "container_2",
+                "count": 1
+              }
+            ],
+            "port": "port_1"
+          }
+        },
+        {
+          "id": "vessel_2",
+          "attributes": {
+            "name": "\"\"",
+            "maxTonnage": "3/4",
+            "hasPowerSupply": "False",
+            "isDocked": "True",
+            "crewCount": "1",
+            "minCrewReq": "1"
+          },
+          "associations": {
+            "cargo": [
+              {
+                "target": "container_0",
+                "count": 1
+              },
+              {
+                "target": "container_1",
+                "count": 1
+              },
+              {
+                "target": "container_2",
+                "count": 1
+              }
+            ],
+            "port": "port_1"
+          }
+        }
+      ],
+      "Container": [
+        {
+          "id": "container_0",
+          "attributes": {
+            "weight": "1/4",
+            "isRefrigerated": "False"
+          },
+          "associations": {
+            "vessel": "vessel_2",
+            "hazards": "hazardousmaterial_0",
+            "shipment": "shipment_0"
+          }
+        },
+        {
+          "id": "container_1",
+          "attributes": {
+            "weight": "1/4",
+            "isRefrigerated": "False"
+          },
+          "associations": {
+            "vessel": "vessel_2",
+            "hazards": "hazardousmaterial_0",
+            "shipment": "shipment_0"
+          }
+        },
+        {
+          "id": "container_2",
+          "attributes": {
+            "weight": "1/4",
+            "isRefrigerated": "False"
+          },
+          "associations": {
+            "vessel": "vessel_2",
+            "hazards": "hazardousmaterial_0",
+            "shipment": "shipment_0"
+          }
+        }
+      ],
+      "HazardousMaterial": [
+        {
+          "id": "hazardousmaterial_0",
+          "attributes": {
+            "safetyCertID": "\"!0!\""
+          },
+          "associations": {
+            "container": "container_0"
+          }
+        },
+        {
+          "id": "hazardousmaterial_1",
+          "attributes": {
+            "safetyCertID": "\"!1!\""
+          },
+          "associations": {
+            "container": "container_0"
+          }
+        },
+        {
+          "id": "hazardousmaterial_2",
+          "attributes": {
+            "safetyCertID": "\"!2!\""
+          },
+          "associations": {
+            "container": "container_0"
+          }
+        }
+      ],
+      "Shipment": [
+        {
+          "id": "shipment_0",
+          "attributes": {
+            "isCleared": "False",
+            "departureDate": "1",
+            "arrivalDate": "2"
+          },
+          "associations": {
+            "boxes": []
+          }
+        },
+        {
+          "id": "shipment_1",
+          "attributes": {
+            "isCleared": "False",
+            "departureDate": "1",
+            "arrivalDate": "2"
+          },
+          "associations": {
+            "boxes": []
+          }
+        },
+        {
+          "id": "shipment_2",
+          "attributes": {
+            "isCleared": "False",
+            "departureDate": "1",
+            "arrivalDate": "2"
+          },
+          "associations": {
+            "boxes": []
+          }
+        }
+      ],
+      "Port": [
+        {
+          "id": "port_0",
+          "attributes": {
+            "totalBerths": "1"
+          },
+          "associations": {
+            "dockedVessels": []
+          }
+        },
+        {
+          "id": "port_1",
+          "attributes": {
+            "totalBerths": "1"
+          },
+          "associations": {
+            "dockedVessels": []
+          }
+        },
+        {
+          "id": "port_2",
+          "attributes": {
+            "totalBerths": "1"
+          },
+          "associations": {
+            "dockedVessels": []
+          }
+        }
+      ]
+    }
+  },
+  "case_20_Multi-Warehouse Inventory Management": {
+    "case_key": "case_20_Multi-Warehouse Inventory Management",
+    "model": "InventoryMgmt",
+    "status": "CONSISTENT",
+    "num_constraints": 7,
+    "constraints": [
+      {
+        "name": "StockItem_NonNegativeQty",
+        "context_class": "StockItem"
+      },
+      {
+        "name": "StockItem_ReservationLimit",
+        "context_class": "StockItem"
+      },
+      {
+        "name": "TransferRequest_ValidStatus",
+        "context_class": "TransferRequest"
+      },
+      {
+        "name": "TransferRequest_NoTransferToInactive",
+        "context_class": "TransferRequest"
+      },
+      {
+        "name": "TransferRequest_PositiveAmount",
+        "context_class": "TransferRequest"
+      },
+      {
+        "name": "StockItem_FragileStorage",
+        "context_class": "StockItem"
+      },
+      {
+        "name": "TransferRequest_SufficientFreeStock",
+        "context_class": "TransferRequest"
+      }
+    ],
+    "solving_time_sec": 0.0059,
+    "scope": 3,
+    "witness_state": {
+      "Warehouse": [
+        {
+          "id": "warehouse_0",
+          "attributes": {
+            "isInactive": "False",
+            "hasSpecialHandling": "False"
+          },
+          "associations": {
+            "inventory": [],
+            "incomingTransfers": []
+          }
+        },
+        {
+          "id": "warehouse_1",
+          "attributes": {
+            "isInactive": "False",
+            "hasSpecialHandling": "False"
+          },
+          "associations": {
+            "inventory": [],
+            "incomingTransfers": []
+          }
+        },
+        {
+          "id": "warehouse_2",
+          "attributes": {
+            "isInactive": "False",
+            "hasSpecialHandling": "False"
+          },
+          "associations": {
+            "inventory": [],
+            "incomingTransfers": []
+          }
+        }
+      ],
+      "Product": [
+        {
+          "id": "product_0",
+          "attributes": {
+            "isFragile": "False",
+            "name": "\"\""
+          },
+          "associations": {
+            "stockItems": []
+          }
+        },
+        {
+          "id": "product_1",
+          "attributes": {
+            "isFragile": "False",
+            "name": "\"\""
+          },
+          "associations": {
+            "stockItems": []
+          }
+        },
+        {
+          "id": "product_2",
+          "attributes": {
+            "isFragile": "False",
+            "name": "\"\""
+          },
+          "associations": {
+            "stockItems": []
+          }
+        }
+      ],
+      "StockItem": [
+        {
+          "id": "stockitem_0",
+          "attributes": {
+            "quantity": "1",
+            "reserved": "1"
+          },
+          "associations": {
+            "warehouse": "warehouse_0",
+            "product": "product_0",
+            "sourceTransfers": []
+          }
+        },
+        {
+          "id": "stockitem_1",
+          "attributes": {
+            "quantity": "1",
+            "reserved": "1"
+          },
+          "associations": {
+            "warehouse": "warehouse_0",
+            "product": "product_0",
+            "sourceTransfers": []
+          }
+        },
+        {
+          "id": "stockitem_2",
+          "attributes": {
+            "quantity": "2",
+            "reserved": "1"
+          },
+          "associations": {
+            "warehouse": "warehouse_0",
+            "product": "product_0",
+            "sourceTransfers": []
+          }
+        }
+      ],
+      "TransferRequest": [
+        {
+          "id": "transferrequest_0",
+          "attributes": {
+            "amount": "1",
+            "status": "\"Pending\""
+          },
+          "associations": {
+            "sourceItem": "stockitem_2",
+            "destWarehouse": "warehouse_0"
+          }
+        },
+        {
+          "id": "transferrequest_1",
+          "attributes": {
+            "amount": "1",
+            "status": "\"Pending\""
+          },
+          "associations": {
+            "sourceItem": "stockitem_2",
+            "destWarehouse": "warehouse_0"
+          }
+        },
+        {
+          "id": "transferrequest_2",
+          "attributes": {
+            "amount": "1",
+            "status": "\"Pending\""
+          },
+          "associations": {
+            "sourceItem": "stockitem_2",
+            "destWarehouse": "warehouse_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_21_E-Commerce Marketplace Order Processing": {
+    "case_key": "case_21_E-Commerce Marketplace Order Processing",
+    "model": "Marketplace",
+    "status": "CONSISTENT",
+    "num_constraints": 10,
+    "constraints": [
+      {
+        "name": "LineItem_NoSelfPurchase",
+        "context_class": "LineItem"
+      },
+      {
+        "name": "Order_MinimumThreshold",
+        "context_class": "Order"
+      },
+      {
+        "name": "Order_PriceConsistency",
+        "context_class": "Order"
+      },
+      {
+        "name": "Listing_ValidListingData",
+        "context_class": "Listing"
+      },
+      {
+        "name": "LineItem_PositiveQty",
+        "context_class": "LineItem"
+      },
+      {
+        "name": "Order_CouponRequirement",
+        "context_class": "Order"
+      },
+      {
+        "name": "Customer_NoOverdraft",
+        "context_class": "Customer"
+      },
+      {
+        "name": "Seller_BannedNoActiveListings",
+        "context_class": "Seller"
+      },
+      {
+        "name": "LineItem_StockLimit",
+        "context_class": "LineItem"
+      },
+      {
+        "name": "Order_ShippingRule",
+        "context_class": "Order"
+      }
+    ],
+    "solving_time_sec": 0.0078,
+    "scope": 3,
+    "witness_state": {
+      "Seller": [
+        {
+          "id": "seller_0",
+          "attributes": {
+            "isBanned": "False"
+          },
+          "associations": {
+            "listings": []
+          }
+        },
+        {
+          "id": "seller_1",
+          "attributes": {
+            "isBanned": "False"
+          },
+          "associations": {
+            "listings": []
+          }
+        },
+        {
+          "id": "seller_2",
+          "attributes": {
+            "isBanned": "False"
+          },
+          "associations": {
+            "listings": []
+          }
+        }
+      ],
+      "Customer": [
+        {
+          "id": "customer_0",
+          "attributes": {
+            "isVIP": "False"
+          },
+          "associations": {
+            "wallet": "wallet_0",
+            "orders": []
+          }
+        },
+        {
+          "id": "customer_1",
+          "attributes": {
+            "isVIP": "False"
+          },
+          "associations": {
+            "wallet": "wallet_0",
+            "orders": []
+          }
+        },
+        {
+          "id": "customer_2",
+          "attributes": {
+            "isVIP": "False"
+          },
+          "associations": {
+            "wallet": "wallet_0",
+            "orders": []
+          }
+        }
+      ],
+      "Wallet": [
+        {
+          "id": "wallet_0",
+          "attributes": {
+            "balance": "1"
+          },
+          "associations": {
+            "customer": "customer_2"
+          }
+        },
+        {
+          "id": "wallet_1",
+          "attributes": {
+            "balance": "1"
+          },
+          "associations": {
+            "customer": "customer_2"
+          }
+        },
+        {
+          "id": "wallet_2",
+          "attributes": {
+            "balance": "1"
+          },
+          "associations": {
+            "customer": "customer_2"
+          }
+        }
+      ],
+      "Listing": [
+        {
+          "id": "listing_0",
+          "attributes": {
+            "price": "1",
+            "stock": "1",
+            "isActive": "False",
+            "expiryYear": "1"
+          },
+          "associations": {
+            "seller": "seller_0",
+            "lineItems": []
+          }
+        },
+        {
+          "id": "listing_1",
+          "attributes": {
+            "price": "1",
+            "stock": "1",
+            "isActive": "False",
+            "expiryYear": "1"
+          },
+          "associations": {
+            "seller": "seller_0",
+            "lineItems": []
+          }
+        },
+        {
+          "id": "listing_2",
+          "attributes": {
+            "price": "1",
+            "stock": "1",
+            "isActive": "False",
+            "expiryYear": "1"
+          },
+          "associations": {
+            "seller": "seller_0",
+            "lineItems": []
+          }
+        }
+      ],
+      "Order": [
+        {
+          "id": "order_0",
+          "attributes": {
+            "totalPrice": "3",
+            "status": "\"\"",
+            "shippingCost": "1",
+            "totalWeight": "1",
+            "currentYear": "1"
+          },
+          "associations": {
+            "buyer": "customer_2",
+            "items": [
+              {
+                "target": "lineitem_0",
+                "count": 1
+              },
+              {
+                "target": "lineitem_1",
+                "count": 1
+              },
+              {
+                "target": "lineitem_2",
+                "count": 1
+              }
+            ],
+            "coupon": "coupon_1"
+          }
+        },
+        {
+          "id": "order_1",
+          "attributes": {
+            "totalPrice": "3",
+            "status": "\"\"",
+            "shippingCost": "1",
+            "totalWeight": "1",
+            "currentYear": "1"
+          },
+          "associations": {
+            "buyer": "customer_2",
+            "items": [
+              {
+                "target": "lineitem_0",
+                "count": 1
+              },
+              {
+                "target": "lineitem_1",
+                "count": 1
+              },
+              {
+                "target": "lineitem_2",
+                "count": 1
+              }
+            ],
+            "coupon": "coupon_1"
+          }
+        },
+        {
+          "id": "order_2",
+          "attributes": {
+            "totalPrice": "3",
+            "status": "\"\"",
+            "shippingCost": "1",
+            "totalWeight": "1",
+            "currentYear": "1"
+          },
+          "associations": {
+            "buyer": "customer_2",
+            "items": [
+              {
+                "target": "lineitem_0",
+                "count": 1
+              },
+              {
+                "target": "lineitem_1",
+                "count": 1
+              },
+              {
+                "target": "lineitem_2",
+                "count": 1
+              }
+            ],
+            "coupon": "coupon_1"
+          }
+        }
+      ],
+      "LineItem": [
+        {
+          "id": "lineitem_0",
+          "attributes": {
+            "quantity": "1"
+          },
+          "associations": {
+            "order": "order_1",
+            "product": "listing_0"
+          }
+        },
+        {
+          "id": "lineitem_1",
+          "attributes": {
+            "quantity": "1"
+          },
+          "associations": {
+            "order": "order_1",
+            "product": "listing_0"
+          }
+        },
+        {
+          "id": "lineitem_2",
+          "attributes": {
+            "quantity": "1"
+          },
+          "associations": {
+            "order": "order_1",
+            "product": "listing_0"
+          }
+        }
+      ],
+      "Coupon": [
+        {
+          "id": "coupon_0",
+          "attributes": {
+            "minPurchaseReq": "1"
+          },
+          "associations": {
+            "orders": []
+          }
+        },
+        {
+          "id": "coupon_1",
+          "attributes": {
+            "minPurchaseReq": "1"
+          },
+          "associations": {
+            "orders": []
+          }
+        },
+        {
+          "id": "coupon_2",
+          "attributes": {
+            "minPurchaseReq": "1"
+          },
+          "associations": {
+            "orders": []
+          }
+        }
+      ]
+    }
+  },
+  "case_22_Hospital Ward Bed Management": {
+    "case_key": "case_22_Hospital Ward Bed Management",
+    "model": "HospitalBedMgmt",
+    "status": "CONSISTENT",
+    "num_constraints": 6,
+    "constraints": [
+      {
+        "name": "Patient_ValidPriority",
+        "context_class": "Patient"
+      },
+      {
+        "name": "Bed_OccupiedConsistency",
+        "context_class": "Bed"
+      },
+      {
+        "name": "Patient_CriticalInICU",
+        "context_class": "Patient"
+      },
+      {
+        "name": "Room_IsolationProtocol",
+        "context_class": "Room"
+      },
+      {
+        "name": "Room_PhysicalBedLimit",
+        "context_class": "Room"
+      },
+      {
+        "name": "Ward_StaffingRatio",
+        "context_class": "Ward"
+      }
+    ],
+    "solving_time_sec": 0.015,
+    "scope": 3,
+    "witness_state": {
+      "Ward": [
+        {
+          "id": "ward_0",
+          "attributes": {
+            "name": "\"\"",
+            "maxCapacity": "1"
+          },
+          "associations": {
+            "rooms": [
+              {
+                "target": "room_2",
+                "count": 1
+              }
+            ],
+            "nurses": [
+              {
+                "target": "nurse_0",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "ward_1",
+          "attributes": {
+            "name": "\"\"",
+            "maxCapacity": "1"
+          },
+          "associations": {
+            "rooms": [
+              {
+                "target": "room_1",
+                "count": 1
+              },
+              {
+                "target": "room_2",
+                "count": 1
+              }
+            ],
+            "nurses": [
+              {
+                "target": "nurse_1",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "ward_2",
+          "attributes": {
+            "name": "\"\"",
+            "maxCapacity": "1"
+          },
+          "associations": {
+            "rooms": [
+              {
+                "target": "room_0",
+                "count": 1
+              },
+              {
+                "target": "room_1",
+                "count": 1
+              }
+            ],
+            "nurses": [
+              {
+                "target": "nurse_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Room": [
+        {
+          "id": "room_0",
+          "attributes": {
+            "isICU": "True",
+            "bedCount": "1"
+          },
+          "associations": {
+            "ward": "ward_2",
+            "beds": [
+              {
+                "target": "bed_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "room_1",
+          "attributes": {
+            "isICU": "False",
+            "bedCount": "1"
+          },
+          "associations": {
+            "ward": "ward_2",
+            "beds": [
+              {
+                "target": "bed_0",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "room_2",
+          "attributes": {
+            "isICU": "False",
+            "bedCount": "2"
+          },
+          "associations": {
+            "ward": "ward_2",
+            "beds": [
+              {
+                "target": "bed_1",
+                "count": 1
+              },
+              {
+                "target": "bed_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Bed": [
+        {
+          "id": "bed_0",
+          "attributes": {
+            "isOccupied": "True"
+          },
+          "associations": {
+            "room": "room_0",
+            "patient": "patient_1"
+          }
+        },
+        {
+          "id": "bed_1",
+          "attributes": {
+            "isOccupied": "True"
+          },
+          "associations": {
+            "room": "room_0",
+            "patient": "patient_2"
+          }
+        },
+        {
+          "id": "bed_2",
+          "attributes": {
+            "isOccupied": "True"
+          },
+          "associations": {
+            "room": "room_0",
+            "patient": "patient_2"
+          }
+        }
+      ],
+      "Patient": [
+        {
+          "id": "patient_0",
+          "attributes": {
+            "priority": "1",
+            "isInfectious": "False"
+          },
+          "associations": {
+            "bed": "bed_0"
+          }
+        },
+        {
+          "id": "patient_1",
+          "attributes": {
+            "priority": "5",
+            "isInfectious": "True"
+          },
+          "associations": {
+            "bed": "bed_0"
+          }
+        },
+        {
+          "id": "patient_2",
+          "attributes": {
+            "priority": "1",
+            "isInfectious": "False"
+          },
+          "associations": {
+            "bed": "bed_0"
+          }
+        }
+      ],
+      "Nurse": [
+        {
+          "id": "nurse_0",
+          "attributes": {
+            "id": "1"
+          },
+          "associations": {
+            "ward": "ward_2"
+          }
+        },
+        {
+          "id": "nurse_1",
+          "attributes": {
+            "id": "1"
+          },
+          "associations": {
+            "ward": "ward_2"
+          }
+        },
+        {
+          "id": "nurse_2",
+          "attributes": {
+            "id": "1"
+          },
+          "associations": {
+            "ward": "ward_2"
+          }
+        }
+      ]
+    }
+  },
+  "case_23_Prescription & Drug Interaction System": {
+    "case_key": "case_23_Prescription & Drug Interaction System",
+    "model": "PrescriptionSafety",
+    "status": "CONSISTENT",
+    "num_constraints": 7,
+    "constraints": [
+      {
+        "name": "Prescription_NotEmpty",
+        "context_class": "Prescription"
+      },
+      {
+        "name": "Drug_SafeAssociatedProfile",
+        "context_class": "Drug"
+      },
+      {
+        "name": "Patient_NoAllergicPrescriptions",
+        "context_class": "Patient"
+      },
+      {
+        "name": "Prescription_LicenseCheck",
+        "context_class": "Prescription"
+      },
+      {
+        "name": "LineItem_PositiveDose",
+        "context_class": "LineItem"
+      },
+      {
+        "name": "Prescription_ExpiryAfterIssue",
+        "context_class": "Prescription"
+      },
+      {
+        "name": "Patient_AcetaminophenLimit",
+        "context_class": "Patient"
+      }
+    ],
+    "solving_time_sec": 0.0366,
+    "scope": 3,
+    "witness_state": {
+      "Doctor": [
+        {
+          "id": "doctor_0",
+          "attributes": {
+            "hasDEALicense": "True"
+          },
+          "associations": {
+            "scripts": []
+          }
+        },
+        {
+          "id": "doctor_1",
+          "attributes": {
+            "hasDEALicense": "False"
+          },
+          "associations": {
+            "scripts": []
+          }
+        },
+        {
+          "id": "doctor_2",
+          "attributes": {
+            "hasDEALicense": "False"
+          },
+          "associations": {
+            "scripts": []
+          }
+        }
+      ],
+      "Patient": [
+        {
+          "id": "patient_0",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "scripts": [
+              {
+                "target": "prescription_1",
+                "count": 1
+              }
+            ],
+            "allergies": []
+          }
+        },
+        {
+          "id": "patient_1",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "scripts": [
+              {
+                "target": "prescription_0",
+                "count": 1
+              }
+            ],
+            "allergies": []
+          }
+        },
+        {
+          "id": "patient_2",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "scripts": [],
+            "allergies": []
+          }
+        }
+      ],
+      "Drug": [
+        {
+          "id": "drug_0",
+          "attributes": {
+            "name": "\"\"",
+            "isControlledSubstance": "False"
+          },
+          "associations": {
+            "lineItems": [],
+            "patients": [],
+            "drugB": [
+              {
+                "target": "drug_1",
+                "count": 1
+              }
+            ],
+            "drugA": [],
+            "interactions": []
+          }
+        },
+        {
+          "id": "drug_1",
+          "attributes": {
+            "name": "\"\"",
+            "isControlledSubstance": "False"
+          },
+          "associations": {
+            "lineItems": [],
+            "patients": [],
+            "drugB": [],
+            "drugA": [],
+            "interactions": []
+          }
+        },
+        {
+          "id": "drug_2",
+          "attributes": {
+            "name": "\"\"",
+            "isControlledSubstance": "False"
+          },
+          "associations": {
+            "lineItems": [],
+            "patients": [],
+            "drugB": [],
+            "drugA": [
+              {
+                "target": "drug_1",
+                "count": 1
+              }
+            ],
+            "interactions": []
+          }
+        }
+      ],
+      "Interaction": [
+        {
+          "id": "interaction_0",
+          "attributes": {
+            "severity": "\"\""
+          },
+          "associations": {
+            "drugs": "drug_2"
+          }
+        },
+        {
+          "id": "interaction_1",
+          "attributes": {
+            "severity": "\"\""
+          },
+          "associations": {
+            "drugs": "drug_2"
+          }
+        },
+        {
+          "id": "interaction_2",
+          "attributes": {
+            "severity": "\"\""
+          },
+          "associations": {
+            "drugs": "drug_2"
+          }
+        }
+      ],
+      "Prescription": [
+        {
+          "id": "prescription_0",
+          "attributes": {
+            "issueDate": "1",
+            "expiryDate": "2"
+          },
+          "associations": {
+            "doctor": "doctor_0",
+            "patient": "patient_2",
+            "items": [
+              {
+                "target": "lineitem_0",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "prescription_1",
+          "attributes": {
+            "issueDate": "1",
+            "expiryDate": "2"
+          },
+          "associations": {
+            "doctor": "doctor_0",
+            "patient": "patient_2",
+            "items": [
+              {
+                "target": "lineitem_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "prescription_2",
+          "attributes": {
+            "issueDate": "1",
+            "expiryDate": "2"
+          },
+          "associations": {
+            "doctor": "doctor_0",
+            "patient": "patient_2",
+            "items": [
+              {
+                "target": "lineitem_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "LineItem": [
+        {
+          "id": "lineitem_0",
+          "attributes": {
+            "dosageMg": "1",
+            "frequency": "1"
+          },
+          "associations": {
+            "prescription": "prescription_0",
+            "drug": "drug_2"
+          }
+        },
+        {
+          "id": "lineitem_1",
+          "attributes": {
+            "dosageMg": "1",
+            "frequency": "1"
+          },
+          "associations": {
+            "prescription": "prescription_0",
+            "drug": "drug_1"
+          }
+        },
+        {
+          "id": "lineitem_2",
+          "attributes": {
+            "dosageMg": "1",
+            "frequency": "1"
+          },
+          "associations": {
+            "prescription": "prescription_0",
+            "drug": "drug_2"
+          }
+        }
+      ]
+    }
+  },
+  "case_24_Medical Device Telemetry & Alerts": {
+    "case_key": "case_24_Medical Device Telemetry & Alerts",
+    "model": "DeviceTelemetry",
+    "status": "CONSISTENT",
+    "num_constraints": 6,
+    "constraints": [
+      {
+        "name": "Monitor_ValidBattery",
+        "context_class": "Monitor"
+      },
+      {
+        "name": "Monitor_LowBatteryAlert",
+        "context_class": "Monitor"
+      },
+      {
+        "name": "Monitor_ReadingsOnlyIfActive",
+        "context_class": "Monitor"
+      },
+      {
+        "name": "Monitor_HeartRateAlert",
+        "context_class": "Monitor"
+      },
+      {
+        "name": "Patient_SingleActiveDeviceType",
+        "context_class": "Patient"
+      },
+      {
+        "name": "Patient_ObservationProtocol",
+        "context_class": "Patient"
+      }
+    ],
+    "solving_time_sec": 0.0078,
+    "scope": 3,
+    "witness_state": {
+      "Patient": [
+        {
+          "id": "patient_0",
+          "attributes": {
+            "status": "\"!0!\"",
+            "earlyWarningScore": "1"
+          },
+          "associations": {
+            "devices": []
+          }
+        },
+        {
+          "id": "patient_1",
+          "attributes": {
+            "status": "\"!1!\"",
+            "earlyWarningScore": "1"
+          },
+          "associations": {
+            "devices": []
+          }
+        },
+        {
+          "id": "patient_2",
+          "attributes": {
+            "status": "\"Observation\"",
+            "earlyWarningScore": "1"
+          },
+          "associations": {
+            "devices": []
+          }
+        }
+      ],
+      "Monitor": [
+        {
+          "id": "monitor_0",
+          "attributes": {
+            "type": "\"D\"",
+            "isActive": "True",
+            "batteryLevel": "1"
+          },
+          "associations": {
+            "patient": "patient_2",
+            "dataStream": [],
+            "alerts": [
+              {
+                "target": "alert_0",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "monitor_1",
+          "attributes": {
+            "type": "\"\"",
+            "isActive": "True",
+            "batteryLevel": "1"
+          },
+          "associations": {
+            "patient": "patient_2",
+            "dataStream": [],
+            "alerts": [
+              {
+                "target": "alert_1",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "monitor_2",
+          "attributes": {
+            "type": "\"A\"",
+            "isActive": "True",
+            "batteryLevel": "1"
+          },
+          "associations": {
+            "patient": "patient_2",
+            "dataStream": [],
+            "alerts": [
+              {
+                "target": "alert_0",
+                "count": 1
+              },
+              {
+                "target": "alert_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Reading": [
+        {
+          "id": "reading_0",
+          "attributes": {
+            "value": "60",
+            "timestamp": "1"
+          },
+          "associations": {
+            "monitor": "monitor_2"
+          }
+        },
+        {
+          "id": "reading_1",
+          "attributes": {
+            "value": "60",
+            "timestamp": "1"
+          },
+          "associations": {
+            "monitor": "monitor_2"
+          }
+        },
+        {
+          "id": "reading_2",
+          "attributes": {
+            "value": "60",
+            "timestamp": "1"
+          },
+          "associations": {
+            "monitor": "monitor_2"
+          }
+        }
+      ],
+      "Alert": [
+        {
+          "id": "alert_0",
+          "attributes": {
+            "type": "\"LowBattery\"",
+            "isAcknowledged": "False"
+          },
+          "associations": {
+            "monitor": "monitor_2"
+          }
+        },
+        {
+          "id": "alert_1",
+          "attributes": {
+            "type": "\"LowBattery\"",
+            "isAcknowledged": "False"
+          },
+          "associations": {
+            "monitor": "monitor_2"
+          }
+        },
+        {
+          "id": "alert_2",
+          "attributes": {
+            "type": "\"Clinical\"",
+            "isAcknowledged": "False"
+          },
+          "associations": {
+            "monitor": "monitor_2"
+          }
+        }
+      ]
+    }
+  },
+  "case_25_University Course Registration": {
+    "case_key": "case_25_University Course Registration",
+    "model": "CourseRegistration",
+    "status": "CONSISTENT",
+    "num_constraints": 8,
+    "constraints": [
+      {
+        "name": "Student_MaxCourses",
+        "context_class": "Student"
+      },
+      {
+        "name": "Student_PrerequisitesCovered",
+        "context_class": "Student"
+      },
+      {
+        "name": "CourseOffering_CapacityLimit",
+        "context_class": "CourseOffering"
+      },
+      {
+        "name": "Student_PrerequisiteSatisfaction",
+        "context_class": "Student"
+      },
+      {
+        "name": "Professor_MaxTeachingLoad",
+        "context_class": "Professor"
+      },
+      {
+        "name": "CourseOffering_HonorsGPA",
+        "context_class": "CourseOffering"
+      },
+      {
+        "name": "Student_MaxCredits",
+        "context_class": "Student"
+      },
+      {
+        "name": "CourseOffering_ActiveMinStudents",
+        "context_class": "CourseOffering"
+      }
+    ],
+    "solving_time_sec": 0.0162,
+    "scope": 3,
+    "witness_state": {
+      "Student": [
+        {
+          "id": "student_0",
+          "attributes": {
+            "gpa": "9/2"
+          },
+          "associations": {
+            "currentEnrollments": [],
+            "completedCourses": [
+              {
+                "target": "course_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "student_1",
+          "attributes": {
+            "gpa": "9/2"
+          },
+          "associations": {
+            "currentEnrollments": [],
+            "completedCourses": [
+              {
+                "target": "course_1",
+                "count": 1
+              },
+              {
+                "target": "course_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "student_2",
+          "attributes": {
+            "gpa": "9/2"
+          },
+          "associations": {
+            "currentEnrollments": [
+              {
+                "target": "courseoffering_1",
+                "count": 1
+              },
+              {
+                "target": "courseoffering_2",
+                "count": 1
+              }
+            ],
+            "completedCourses": [
+              {
+                "target": "course_0",
+                "count": 1
+              },
+              {
+                "target": "course_1",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Course": [
+        {
+          "id": "course_0",
+          "attributes": {
+            "title": "\"\"",
+            "credits": "1"
+          },
+          "associations": {
+            "offerings": [],
+            "students": [],
+            "prerequisites": [],
+            "requiredFor": []
+          }
+        },
+        {
+          "id": "course_1",
+          "attributes": {
+            "title": "\"\"",
+            "credits": "1"
+          },
+          "associations": {
+            "offerings": [],
+            "students": [],
+            "prerequisites": [],
+            "requiredFor": []
+          }
+        },
+        {
+          "id": "course_2",
+          "attributes": {
+            "title": "\"\"",
+            "credits": "1"
+          },
+          "associations": {
+            "offerings": [],
+            "students": [],
+            "prerequisites": [],
+            "requiredFor": []
+          }
+        }
+      ],
+      "CourseOffering": [
+        {
+          "id": "courseoffering_0",
+          "attributes": {
+            "maxCapacity": "1",
+            "isHonors": "False",
+            "isActive": "False"
+          },
+          "associations": {
+            "students": [],
+            "course": "course_2",
+            "professor": "professor_1"
+          }
+        },
+        {
+          "id": "courseoffering_1",
+          "attributes": {
+            "maxCapacity": "1",
+            "isHonors": "False",
+            "isActive": "False"
+          },
+          "associations": {
+            "students": [],
+            "course": "course_0",
+            "professor": "professor_1"
+          }
+        },
+        {
+          "id": "courseoffering_2",
+          "attributes": {
+            "maxCapacity": "1",
+            "isHonors": "False",
+            "isActive": "False"
+          },
+          "associations": {
+            "students": [],
+            "course": "course_0",
+            "professor": "professor_1"
+          }
+        }
+      ],
+      "Professor": [
+        {
+          "id": "professor_0",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "teachingLoad": []
+          }
+        },
+        {
+          "id": "professor_1",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "teachingLoad": []
+          }
+        },
+        {
+          "id": "professor_2",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "teachingLoad": []
+          }
+        }
+      ]
+    }
+  },
+  "case_26_Online Exam & Proctoring System": {
+    "case_key": "case_26_Online Exam & Proctoring System",
+    "model": "OnlineExam",
+    "status": "CONSISTENT",
+    "num_constraints": 6,
+    "constraints": [
+      {
+        "name": "ExamSession_DurationLimit",
+        "context_class": "ExamSession"
+      },
+      {
+        "name": "ExamSession_AutoFlagging",
+        "context_class": "ExamSession"
+      },
+      {
+        "name": "Exam_TotalScoreCheck",
+        "context_class": "Exam"
+      },
+      {
+        "name": "Student_OneActiveSession",
+        "context_class": "Student"
+      },
+      {
+        "name": "ExamSession_HighStakesProctor",
+        "context_class": "ExamSession"
+      },
+      {
+        "name": "Exam_NonEmptyExam",
+        "context_class": "Exam"
+      }
+    ],
+    "solving_time_sec": 0.0068,
+    "scope": 3,
+    "witness_state": {
+      "Student": [
+        {
+          "id": "student_0",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "sessions": []
+          }
+        },
+        {
+          "id": "student_1",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "sessions": []
+          }
+        },
+        {
+          "id": "student_2",
+          "attributes": {
+            "name": "\"\""
+          },
+          "associations": {
+            "sessions": []
+          }
+        }
+      ],
+      "Exam": [
+        {
+          "id": "exam_0",
+          "attributes": {
+            "durationMinutes": "1",
+            "isHighStakes": "False",
+            "totalScore": "3"
+          },
+          "associations": {
+            "sessions": [],
+            "questions": [
+              {
+                "target": "question_0",
+                "count": 1
+              },
+              {
+                "target": "question_1",
+                "count": 1
+              },
+              {
+                "target": "question_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "exam_1",
+          "attributes": {
+            "durationMinutes": "1",
+            "isHighStakes": "False",
+            "totalScore": "3"
+          },
+          "associations": {
+            "sessions": [],
+            "questions": [
+              {
+                "target": "question_0",
+                "count": 1
+              },
+              {
+                "target": "question_1",
+                "count": 1
+              },
+              {
+                "target": "question_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "exam_2",
+          "attributes": {
+            "durationMinutes": "1",
+            "isHighStakes": "False",
+            "totalScore": "3"
+          },
+          "associations": {
+            "sessions": [],
+            "questions": [
+              {
+                "target": "question_0",
+                "count": 1
+              },
+              {
+                "target": "question_1",
+                "count": 1
+              },
+              {
+                "target": "question_2",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Question": [
+        {
+          "id": "question_0",
+          "attributes": {
+            "points": "1",
+            "content": "\"\""
+          },
+          "associations": {
+            "exam": "exam_2"
+          }
+        },
+        {
+          "id": "question_1",
+          "attributes": {
+            "points": "1",
+            "content": "\"\""
+          },
+          "associations": {
+            "exam": "exam_2"
+          }
+        },
+        {
+          "id": "question_2",
+          "attributes": {
+            "points": "1",
+            "content": "\"\""
+          },
+          "associations": {
+            "exam": "exam_2"
+          }
+        }
+      ],
+      "ExamSession": [
+        {
+          "id": "examsession_0",
+          "attributes": {
+            "startTime": "1",
+            "endTime": "1",
+            "isFlagged": "False",
+            "isInProgress": "False",
+            "proctorId": "\"\""
+          },
+          "associations": {
+            "student": "student_0",
+            "exam": "exam_2",
+            "events": []
+          }
+        },
+        {
+          "id": "examsession_1",
+          "attributes": {
+            "startTime": "1",
+            "endTime": "1",
+            "isFlagged": "False",
+            "isInProgress": "False",
+            "proctorId": "\"\""
+          },
+          "associations": {
+            "student": "student_0",
+            "exam": "exam_2",
+            "events": []
+          }
+        },
+        {
+          "id": "examsession_2",
+          "attributes": {
+            "startTime": "1",
+            "endTime": "1",
+            "isFlagged": "False",
+            "isInProgress": "False",
+            "proctorId": "\"\""
+          },
+          "associations": {
+            "student": "student_0",
+            "exam": "exam_2",
+            "events": []
+          }
+        }
+      ],
+      "SuspiciousEvent": [
+        {
+          "id": "suspiciousevent_0",
+          "attributes": {
+            "type": "\"\""
+          },
+          "associations": {
+            "session": "examsession_0"
+          }
+        },
+        {
+          "id": "suspiciousevent_1",
+          "attributes": {
+            "type": "\"\""
+          },
+          "associations": {
+            "session": "examsession_0"
+          }
+        },
+        {
+          "id": "suspiciousevent_2",
+          "attributes": {
+            "type": "\"\""
+          },
+          "associations": {
+            "session": "examsession_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_27_Library & Digital Resource Loans": {
+    "case_key": "case_27_Library & Digital Resource Loans",
+    "model": "LibrarySystem",
+    "status": "CONSISTENT",
+    "num_constraints": 5,
+    "constraints": [
+      {
+        "name": "Loan_MaxDurationCheck",
+        "context_class": "Loan"
+      },
+      {
+        "name": "Member_BlockIfOverdue",
+        "context_class": "Member"
+      },
+      {
+        "name": "Loan_ItemCondition",
+        "context_class": "Loan"
+      },
+      {
+        "name": "Loan_DigitalFree",
+        "context_class": "Loan"
+      },
+      {
+        "name": "Member_MaxFineBlock",
+        "context_class": "Member"
+      }
+    ],
+    "solving_time_sec": 0.0064,
+    "scope": 3,
+    "witness_state": {
+      "Member": [
+        {
+          "id": "member_0",
+          "attributes": {
+            "type": "\"!0!\"",
+            "isBlocked": "True"
+          },
+          "associations": {
+            "loans": []
+          }
+        },
+        {
+          "id": "member_1",
+          "attributes": {
+            "type": "\"\"",
+            "isBlocked": "True"
+          },
+          "associations": {
+            "loans": []
+          }
+        },
+        {
+          "id": "member_2",
+          "attributes": {
+            "type": "\"\"",
+            "isBlocked": "True"
+          },
+          "associations": {
+            "loans": []
+          }
+        }
+      ],
+      "ResourceItem": [
+        {
+          "id": "resourceitem_0",
+          "attributes": {
+            "isDigital": "False",
+            "status": "\"\""
+          },
+          "associations": {
+            "loan": []
+          }
+        },
+        {
+          "id": "resourceitem_1",
+          "attributes": {
+            "isDigital": "False",
+            "status": "\"\""
+          },
+          "associations": {
+            "loan": []
+          }
+        },
+        {
+          "id": "resourceitem_2",
+          "attributes": {
+            "isDigital": "False",
+            "status": "\"\""
+          },
+          "associations": {
+            "loan": []
+          }
+        }
+      ],
+      "Loan": [
+        {
+          "id": "loan_0",
+          "attributes": {
+            "daysBorrowed": "1",
+            "isOverdue": "False",
+            "isActive": "False",
+            "fineAmount": "1/2"
+          },
+          "associations": {
+            "member": "member_0",
+            "item": "resourceitem_0"
+          }
+        },
+        {
+          "id": "loan_1",
+          "attributes": {
+            "daysBorrowed": "1",
+            "isOverdue": "False",
+            "isActive": "False",
+            "fineAmount": "1/2"
+          },
+          "associations": {
+            "member": "member_0",
+            "item": "resourceitem_0"
+          }
+        },
+        {
+          "id": "loan_2",
+          "attributes": {
+            "daysBorrowed": "1",
+            "isOverdue": "False",
+            "isActive": "False",
+            "fineAmount": "1/2"
+          },
+          "associations": {
+            "member": "member_0",
+            "item": "resourceitem_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_28_Peer-to-Peer (P2P) Lending Platform": {
+    "case_key": "case_28_Peer-to-Peer (P2P) Lending Platform",
+    "model": "P2PLending",
+    "status": "CONSISTENT",
+    "num_constraints": 6,
+    "constraints": [
+      {
+        "name": "LoanRequest_MinCreditScore",
+        "context_class": "LoanRequest"
+      },
+      {
+        "name": "LoanRequest_DebtToIncomeLimit",
+        "context_class": "LoanRequest"
+      },
+      {
+        "name": "Investment_NoSelfFunding",
+        "context_class": "Investment"
+      },
+      {
+        "name": "LoanRequest_ActiveRequiresFullFunding",
+        "context_class": "LoanRequest"
+      },
+      {
+        "name": "Investment_PositiveAmount",
+        "context_class": "Investment"
+      },
+      {
+        "name": "LoanRequest_ValidInterestRate",
+        "context_class": "LoanRequest"
+      }
+    ],
+    "solving_time_sec": 0.0084,
+    "scope": 3,
+    "witness_state": {
+      "User": [
+        {
+          "id": "user_0",
+          "attributes": {
+            "name": "\"\"",
+            "annualIncome": "5/4"
+          },
+          "associations": {
+            "profile": "creditprofile_2",
+            "loans": [],
+            "portfolio": []
+          }
+        },
+        {
+          "id": "user_1",
+          "attributes": {
+            "name": "\"\"",
+            "annualIncome": "5/4"
+          },
+          "associations": {
+            "profile": "creditprofile_2",
+            "loans": [],
+            "portfolio": []
+          }
+        },
+        {
+          "id": "user_2",
+          "attributes": {
+            "name": "\"\"",
+            "annualIncome": "1/2"
+          },
+          "associations": {
+            "profile": "creditprofile_2",
+            "loans": [],
+            "portfolio": []
+          }
+        }
+      ],
+      "CreditProfile": [
+        {
+          "id": "creditprofile_0",
+          "attributes": {
+            "score": "1"
+          },
+          "associations": {
+            "owner": "user_1"
+          }
+        },
+        {
+          "id": "creditprofile_1",
+          "attributes": {
+            "score": "1"
+          },
+          "associations": {
+            "owner": "user_1"
+          }
+        },
+        {
+          "id": "creditprofile_2",
+          "attributes": {
+            "score": "600"
+          },
+          "associations": {
+            "owner": "user_1"
+          }
+        }
+      ],
+      "LoanRequest": [
+        {
+          "id": "loanrequest_0",
+          "attributes": {
+            "amount": "1/2",
+            "interestRate": "2",
+            "status": "\"\""
+          },
+          "associations": {
+            "borrower": "user_0",
+            "funding": []
+          }
+        },
+        {
+          "id": "loanrequest_1",
+          "attributes": {
+            "amount": "1/2",
+            "interestRate": "2",
+            "status": "\"\""
+          },
+          "associations": {
+            "borrower": "user_1",
+            "funding": []
+          }
+        },
+        {
+          "id": "loanrequest_2",
+          "attributes": {
+            "amount": "1/2",
+            "interestRate": "2",
+            "status": "\"\""
+          },
+          "associations": {
+            "borrower": "user_1",
+            "funding": []
+          }
+        }
+      ],
+      "Investment": [
+        {
+          "id": "investment_0",
+          "attributes": {
+            "amount": "1/2"
+          },
+          "associations": {
+            "request": "loanrequest_1",
+            "investor": "user_0"
+          }
+        },
+        {
+          "id": "investment_1",
+          "attributes": {
+            "amount": "1/2"
+          },
+          "associations": {
+            "request": "loanrequest_0",
+            "investor": "user_1"
+          }
+        },
+        {
+          "id": "investment_2",
+          "attributes": {
+            "amount": "1/2"
+          },
+          "associations": {
+            "request": "loanrequest_0",
+            "investor": "user_1"
+          }
+        }
+      ]
+    }
+  },
+  "case_29_Crypto Exchange & Wallet System": {
+    "case_key": "case_29_Crypto Exchange & Wallet System",
+    "model": "CryptoExchange",
+    "status": "CONSISTENT",
+    "num_constraints": 6,
+    "constraints": [
+      {
+        "name": "Balance_NonNegativeBalance",
+        "context_class": "Balance"
+      },
+      {
+        "name": "Balance_RestrictedTokenAccess",
+        "context_class": "Balance"
+      },
+      {
+        "name": "Transaction_InsufficientFunds",
+        "context_class": "Transaction"
+      },
+      {
+        "name": "Transaction_SourceOwnership",
+        "context_class": "Transaction"
+      },
+      {
+        "name": "User_SanctionsFreeze",
+        "context_class": "User"
+      },
+      {
+        "name": "Transaction_MinDustLimit",
+        "context_class": "Transaction"
+      }
+    ],
+    "solving_time_sec": 0.0059,
+    "scope": 3,
+    "witness_state": {
+      "User": [
+        {
+          "id": "user_0",
+          "attributes": {
+            "isKYCVerified": "False",
+            "isSanctioned": "False"
+          },
+          "associations": {
+            "wallets": []
+          }
+        },
+        {
+          "id": "user_1",
+          "attributes": {
+            "isKYCVerified": "False",
+            "isSanctioned": "False"
+          },
+          "associations": {
+            "wallets": []
+          }
+        },
+        {
+          "id": "user_2",
+          "attributes": {
+            "isKYCVerified": "False",
+            "isSanctioned": "False"
+          },
+          "associations": {
+            "wallets": []
+          }
+        }
+      ],
+      "Blockchain": [
+        {
+          "id": "blockchain_0",
+          "attributes": {
+            "chainId": "\"\""
+          },
+          "associations": {
+            "wallets": []
+          }
+        },
+        {
+          "id": "blockchain_1",
+          "attributes": {
+            "chainId": "\"\""
+          },
+          "associations": {
+            "wallets": []
+          }
+        },
+        {
+          "id": "blockchain_2",
+          "attributes": {
+            "chainId": "\"\""
+          },
+          "associations": {
+            "wallets": []
+          }
+        }
+      ],
+      "Wallet": [
+        {
+          "id": "wallet_0",
+          "attributes": {
+            "isFrozen": "True"
+          },
+          "associations": {
+            "owner": "user_1",
+            "chain": "blockchain_0",
+            "assets": []
+          }
+        },
+        {
+          "id": "wallet_1",
+          "attributes": {
+            "isFrozen": "True"
+          },
+          "associations": {
+            "owner": "user_1",
+            "chain": "blockchain_0",
+            "assets": []
+          }
+        },
+        {
+          "id": "wallet_2",
+          "attributes": {
+            "isFrozen": "True"
+          },
+          "associations": {
+            "owner": "user_1",
+            "chain": "blockchain_0",
+            "assets": []
+          }
+        }
+      ],
+      "Token": [
+        {
+          "id": "token_0",
+          "attributes": {
+            "symbol": "\"\"",
+            "isRestricted": "False"
+          },
+          "associations": {
+            "balances": []
+          }
+        },
+        {
+          "id": "token_1",
+          "attributes": {
+            "symbol": "\"\"",
+            "isRestricted": "False"
+          },
+          "associations": {
+            "balances": []
+          }
+        },
+        {
+          "id": "token_2",
+          "attributes": {
+            "symbol": "\"\"",
+            "isRestricted": "False"
+          },
+          "associations": {
+            "balances": []
+          }
+        }
+      ],
+      "Balance": [
+        {
+          "id": "balance_0",
+          "attributes": {
+            "amount": "1/2"
+          },
+          "associations": {
+            "wallet": "wallet_0",
+            "token": "token_2",
+            "transactions": []
+          }
+        },
+        {
+          "id": "balance_1",
+          "attributes": {
+            "amount": "1/2"
+          },
+          "associations": {
+            "wallet": "wallet_0",
+            "token": "token_2",
+            "transactions": []
+          }
+        },
+        {
+          "id": "balance_2",
+          "attributes": {
+            "amount": "100001/100000"
+          },
+          "associations": {
+            "wallet": "wallet_0",
+            "token": "token_2",
+            "transactions": []
+          }
+        }
+      ],
+      "Transaction": [
+        {
+          "id": "transaction_0",
+          "attributes": {
+            "amount": "50001/100000",
+            "fee": "1/2"
+          },
+          "associations": {
+            "sourceBalance": "balance_2",
+            "sender": "wallet_0"
+          }
+        },
+        {
+          "id": "transaction_1",
+          "attributes": {
+            "amount": "50001/100000",
+            "fee": "1/2"
+          },
+          "associations": {
+            "sourceBalance": "balance_2",
+            "sender": "wallet_0"
+          }
+        },
+        {
+          "id": "transaction_2",
+          "attributes": {
+            "amount": "50001/100000",
+            "fee": "1/2"
+          },
+          "associations": {
+            "sourceBalance": "balance_2",
+            "sender": "wallet_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_30_Credit Card Risk Engine": {
+    "case_key": "case_30_Credit Card Risk Engine",
+    "model": "CreditRisk",
+    "status": "CONSISTENT",
+    "num_constraints": 6,
+    "constraints": [
+      {
+        "name": "CreditCard_OverLimitCheck",
+        "context_class": "CreditCard"
+      },
+      {
+        "name": "Transaction_HighRiskCap",
+        "context_class": "Transaction"
+      },
+      {
+        "name": "Transaction_InternationalCheck",
+        "context_class": "Transaction"
+      },
+      {
+        "name": "Transaction_CardExpiryCheck",
+        "context_class": "Transaction"
+      },
+      {
+        "name": "Transaction_LargeTxFraudAlert",
+        "context_class": "Transaction"
+      },
+      {
+        "name": "CardHolder_MaxCards",
+        "context_class": "CardHolder"
+      }
+    ],
+    "solving_time_sec": 0.0113,
+    "scope": 3,
+    "witness_state": {
+      "CardHolder": [
+        {
+          "id": "cardholder_0",
+          "attributes": {
+            "residenceCountry": "\"!0!\"",
+            "avgTxValue": "1/2"
+          },
+          "associations": {
+            "cards": []
+          }
+        },
+        {
+          "id": "cardholder_1",
+          "attributes": {
+            "residenceCountry": "\"\"",
+            "avgTxValue": "1/2"
+          },
+          "associations": {
+            "cards": []
+          }
+        },
+        {
+          "id": "cardholder_2",
+          "attributes": {
+            "residenceCountry": "\"\"",
+            "avgTxValue": "1/2"
+          },
+          "associations": {
+            "cards": []
+          }
+        }
+      ],
+      "CreditCard": [
+        {
+          "id": "creditcard_0",
+          "attributes": {
+            "limit": "1/2",
+            "balance": "1/2",
+            "expiryYear": "1",
+            "internationalEnabled": "False",
+            "isActive": "False"
+          },
+          "associations": {
+            "holder": "cardholder_0",
+            "txs": []
+          }
+        },
+        {
+          "id": "creditcard_1",
+          "attributes": {
+            "limit": "1/2",
+            "balance": "1/2",
+            "expiryYear": "1",
+            "internationalEnabled": "False",
+            "isActive": "False"
+          },
+          "associations": {
+            "holder": "cardholder_0",
+            "txs": []
+          }
+        },
+        {
+          "id": "creditcard_2",
+          "attributes": {
+            "limit": "1/2",
+            "balance": "1/2",
+            "expiryYear": "1",
+            "internationalEnabled": "True",
+            "isActive": "False"
+          },
+          "associations": {
+            "holder": "cardholder_0",
+            "txs": []
+          }
+        }
+      ],
+      "Merchant": [
+        {
+          "id": "merchant_0",
+          "attributes": {
+            "country": "\"\"",
+            "category": "\"\""
+          },
+          "associations": {
+            "transactions": []
+          }
+        },
+        {
+          "id": "merchant_1",
+          "attributes": {
+            "country": "\"\"",
+            "category": "\"\""
+          },
+          "associations": {
+            "transactions": []
+          }
+        },
+        {
+          "id": "merchant_2",
+          "attributes": {
+            "country": "\"!1!\"",
+            "category": "\"\""
+          },
+          "associations": {
+            "transactions": []
+          }
+        }
+      ],
+      "Transaction": [
+        {
+          "id": "transaction_0",
+          "attributes": {
+            "amount": "1/2",
+            "status": "\"\"",
+            "year": "1"
+          },
+          "associations": {
+            "card": "creditcard_2",
+            "merchant": "merchant_2",
+            "alert": "fraudalert_0"
+          }
+        },
+        {
+          "id": "transaction_1",
+          "attributes": {
+            "amount": "1/2",
+            "status": "\"\"",
+            "year": "1"
+          },
+          "associations": {
+            "card": "creditcard_2",
+            "merchant": "merchant_2",
+            "alert": "fraudalert_0"
+          }
+        },
+        {
+          "id": "transaction_2",
+          "attributes": {
+            "amount": "1/2",
+            "status": "\"\"",
+            "year": "1"
+          },
+          "associations": {
+            "card": "creditcard_2",
+            "merchant": "merchant_2",
+            "alert": "fraudalert_0"
+          }
+        }
+      ],
+      "FraudAlert": [
+        {
+          "id": "fraudalert_0",
+          "attributes": {
+            "severity": "\"\""
+          },
+          "associations": {
+            "transaction": "transaction_1"
+          }
+        },
+        {
+          "id": "fraudalert_1",
+          "attributes": {
+            "severity": "\"\""
+          },
+          "associations": {
+            "transaction": "transaction_1"
+          }
+        },
+        {
+          "id": "fraudalert_2",
+          "attributes": {
+            "severity": "\"\""
+          },
+          "associations": {
+            "transaction": "transaction_1"
+          }
+        }
+      ]
+    }
+  },
+  "case_31_Insurance_Claim_Processing_System": {
+    "case_key": "case_31_Insurance_Claim_Processing_System",
+    "model": "Insurance Claim System",
+    "status": "CONSISTENT",
+    "num_constraints": 4,
+    "constraints": [
+      {
+        "name": "Claim_EffectivePayout",
+        "context_class": "Claim"
+      },
+      {
+        "name": "Claim_ApprovalThreshold",
+        "context_class": "Claim"
+      },
+      {
+        "name": "Claim_CoverageRatio",
+        "context_class": "Claim"
+      },
+      {
+        "name": "Policy_AverageClaimValue",
+        "context_class": "Policy"
+      }
+    ],
+    "solving_time_sec": 0.0144,
+    "scope": 3,
+    "witness_state": {
+      "Policy": [
+        {
+          "id": "policy_0",
+          "attributes": {
+            "maxCoverage": "5/2",
+            "deductible": "1"
+          },
+          "associations": {
+            "claims": [
+              {
+                "target": "claim_1",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "policy_1",
+          "attributes": {
+            "maxCoverage": "1",
+            "deductible": "3/4"
+          },
+          "associations": {
+            "claims": [
+              {
+                "target": "claim_1",
+                "count": 1
+              },
+              {
+                "target": "claim_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "policy_2",
+          "attributes": {
+            "maxCoverage": "1",
+            "deductible": "1"
+          },
+          "associations": {
+            "claims": [
+              {
+                "target": "claim_0",
+                "count": 1
+              },
+              {
+                "target": "claim_1",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Claim": [
+        {
+          "id": "claim_0",
+          "attributes": {
+            "requestedAmount": "1",
+            "isApproved": "False"
+          },
+          "associations": {
+            "adjuster": "adjuster_0",
+            "policy": "policy_0"
+          }
+        },
+        {
+          "id": "claim_1",
+          "attributes": {
+            "requestedAmount": "1",
+            "isApproved": "False"
+          },
+          "associations": {
+            "adjuster": "adjuster_0",
+            "policy": "policy_0"
+          }
+        },
+        {
+          "id": "claim_2",
+          "attributes": {
+            "requestedAmount": "1/2",
+            "isApproved": "False"
+          },
+          "associations": {
+            "adjuster": "adjuster_0",
+            "policy": "policy_0"
+          }
+        }
+      ],
+      "Adjuster": [
+        {
+          "id": "adjuster_0",
+          "attributes": {
+            "approvedAmount": "1"
+          },
+          "associations": {
+            "claim": "claim_0"
+          }
+        },
+        {
+          "id": "adjuster_1",
+          "attributes": {
+            "approvedAmount": "1"
+          },
+          "associations": {
+            "claim": "claim_0"
+          }
+        },
+        {
+          "id": "adjuster_2",
+          "attributes": {
+            "approvedAmount": "1"
+          },
+          "associations": {
+            "claim": "claim_0"
+          }
+        }
+      ]
+    }
+  },
+  "case_32_Education_Assessment_System": {
+    "case_key": "case_32_Education_Assessment_System",
+    "model": "EducationAssessment",
+    "status": "CONSISTENT",
+    "num_constraints": 4,
+    "constraints": [
+      {
+        "name": "Question_ValidTopic",
+        "context_class": "Question"
+      },
+      {
+        "name": "Question_ValidPoints",
+        "context_class": "Question"
+      },
+      {
+        "name": "Exam_AllTopicsCovered",
+        "context_class": "Exam"
+      },
+      {
+        "name": "Exam_UniqueTopicCount",
+        "context_class": "Exam"
+      }
+    ],
+    "solving_time_sec": 0.0063,
+    "scope": 3,
+    "witness_state": {
+      "Exam": [
+        {
+          "id": "exam_0",
+          "attributes": {
+            "passingScore": "1",
+            "maxScore": "1"
+          },
+          "associations": {
+            "sections": [
+              {
+                "target": "section_0",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "exam_1",
+          "attributes": {
+            "passingScore": "1",
+            "maxScore": "1"
+          },
+          "associations": {
+            "sections": [
+              {
+                "target": "section_0",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "exam_2",
+          "attributes": {
+            "passingScore": "1",
+            "maxScore": "1"
+          },
+          "associations": {
+            "sections": [
+              {
+                "target": "section_1",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      "Section": [
+        {
+          "id": "section_0",
+          "attributes": {
+            "weight": "1/2"
+          },
+          "associations": {
+            "exam": "exam_2",
+            "questions": [
+              {
+                "target": "question_0",
+                "count": 1
+              },
+              {
+                "target": "question_1",
+                "count": 1
+              },
+              {
+                "target": "question_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "section_1",
+          "attributes": {
+            "weight": "1/2"
+          },
+          "associations": {
+            "exam": "exam_2",
+            "questions": [
+              {
+                "target": "question_0",
+                "count": 1
+              },
+              {
+                "target": "question_1",
+                "count": 1
+              },
+              {
+                "target": "question_2",
+                "count": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "section_2",
+          "attributes": {
+            "weight": "1/2"
+          },
+          "associations": {
+            "exam": "exam_2",
+            "questions": []
+          }
+        }
+      ],
+      "Question": [
+        {
+          "id": "question_0",
+          "attributes": {
+            "points": "10",
+            "topic": "\"Geometry\""
+          },
+          "associations": {
+            "section": "section_0"
+          }
+        },
+        {
+          "id": "question_1",
+          "attributes": {
+            "points": "5",
+            "topic": "\"Calculus\""
+          },
+          "associations": {
+            "section": "section_0"
+          }
+        },
+        {
+          "id": "question_2",
+          "attributes": {
+            "points": "5",
+            "topic": "\"Algebra\""
+          },
+          "associations": {
+            "section": "section_0"
+          }
+        }
+      ]
+    }
+  }
+}
