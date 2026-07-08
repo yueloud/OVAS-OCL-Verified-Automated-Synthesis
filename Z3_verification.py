@@ -1283,6 +1283,7 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
                     "total_pipeline_time_sec": total_end - total_start,
                     "timeout_hit": False
                 }
+                return result
 
         encoding_start = time.perf_counter()
         encoder = BoundedUMLModelEncoder(uml_context, scope=3)
@@ -1342,6 +1343,7 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
                     "total_pipeline_time_sec": total_end - total_start,
                     "timeout_hit": safety_timeout
                 }
+                return result
 
         if _abl_enabled("enable_vacuity_check"):
             s.push()
@@ -1372,6 +1374,7 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
                     "total_pipeline_time_sec": total_end - total_start,
                     "timeout_hit": safety_timeout or vacuity_timeout
                 }
+                return result
 
         if _abl_enabled("enable_layer3_z3_equivalence"):
             eq_result = check_equivalence(
@@ -1396,6 +1399,7 @@ def evaluate_constraint(gt_ast: OCLExpression, llm_ast: OCLExpression,
         eq_result["timeout_hit"] = (
             eq_result.get("timeout_hit", False)
             or safety_timeout or vacuity_timeout)
+        return eq_result
 
     finally:
         gc.enable()

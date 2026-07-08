@@ -588,7 +588,7 @@ def main(ablation_config: AblationSwitch = None):
                         json.dump(output_data, f, indent=2, ensure_ascii=False)
 
                     cached_eq_result = eq_result_cached
-                    print(f" {constraint_name} Saved")
+                    print(f"{constraint_name} Saved")
 
                 except Exception as e:
                     print(f"Generation failed {constraint_name}: {e}")
