@@ -1,30 +1,30 @@
 1. This repository contains the source codes of the paper entitled "A Neuro-Symbolic Pipeline for Automated Synthesis and Verification of OCL Constraints".
 
-Abstract: Authoring OCL constraints manually in Model-Driven Engineering is error-prone. While Large Language Models offer a potential solution for automated synthesis, they suffer from structural and semantic hallucinations. Current LLM-based approaches primarily target statistical translation accuracy, lacking formal guarantees of semantic correctness. We propose a neuro-symbolic synthesis pipeline that couples LLM generation with a three-layered defense mechanism and a self-correction loop. Layer 1 enforces structural compliance via JSON Schema validation, and Layer 2 performs static type checking within the UML context. Crucially, Layer 3 translates the candidate OCL constraint into SMT formulas for strict semantic equivalence checking with the reference specification. To ensure decidability, we define a decidable OCL subset and introduce a novel bounded SMT encoding strategy. This strategy employs a value-condition separation mechanism to handle OCL's four-valued logic and abstracts collection algebra into counting functions with bounded quantifier elimination, reducing complex constraints to quantifier-free formulas. Evaluation on a benchmark of 137 OCL constraints demonstrates that the pipeline achieves a strict semantic equivalence rate of 98.54\%, while maintaining computational tractability within standard bounded scopes.
+    Abstract: Authoring OCL constraints manually in Model-Driven Engineering is error-prone. While Large Language Models offer a potential solution for automated synthesis, they suffer from structural and semantic hallucinations. Current LLM-based approaches primarily target statistical translation accuracy, lacking formal guarantees of semantic correctness. We propose a neuro-symbolic synthesis pipeline that couples LLM generation with a three-layered defense mechanism and a self-correction loop. Layer 1 enforces structural compliance via JSON Schema validation, and Layer 2 performs static type checking within the UML context. Crucially, Layer 3 translates the candidate OCL constraint into SMT formulas for strict semantic equivalence checking with the reference specification. To ensure decidability, we define a decidable OCL subset and introduce a novel bounded SMT encoding strategy. This strategy employs a value-condition separation mechanism to handle OCL's four-valued logic and abstracts collection algebra into counting functions with bounded quantifier elimination, reducing complex constraints to quantifier-free formulas. Evaluation on a benchmark of 137 OCL constraints demonstrates that the pipeline achieves a strict semantic equivalence rate of 98.54\%, while maintaining computational tractability within standard bounded scopes.
 
 2. Run main.py to get started. To disable specific components, instantiate the AblationSwitch class with a predefined preset (e.g., exp1_pre_verification) or custom overrides, and pass it to the main() function. A brief introduction of each file:
 
-(1) main.py: The core execution script. It orchestrates the translation of natural language requirements into OCL ASTs using an LLM and implements a multi-layer checking pipeline comprising structural, semantic, and formal verification.
+    (1) main.py: The core execution script. It orchestrates the translation of natural language requirements into OCL ASTs using an LLM and implements a multi-layer checking pipeline comprising structural, semantic, and formal verification.
 
-(2) config.py: Defines global configurations, including LLM parameters, and implements the AblationSwitch class to enable or disable specific checking layers and experimental presets.
+    (2) config.py: Defines global configurations, including LLM parameters, and implements the AblationSwitch class to enable or disable specific checking layers and experimental presets.
 
-(3) utils.py: Provides utility functions for interacting with the LLM API, including structured response generation and transient error retry mechanisms.
+    (3) utils.py: Provides utility functions for interacting with the LLM API, including structured response generation and transient error retry mechanisms.
 
-(4) json_schema.py: Defines the Pydantic models representing the OCL AST structure, serving as the schema constraint for Layer 1 structural validation.
+    (4) json_schema.py: Defines the Pydantic models representing the OCL AST structure, serving as the schema constraint for Layer 1 structural validation.
 
-(5) semantic_checker.py: Implements the Layer 2 static type checker. It resolves UML structural contexts, constructs type environments, and enforces strict type checking and null-safety rules on the generated OCL AST.
+    (5) semantic_checker.py: Implements the Layer 2 static type checker. It resolves UML structural contexts, constructs type environments, and enforces strict type checking and null-safety rules on the generated OCL AST.
 
-(6) Z3_verification.py: Implements the Layer 3 formal verification. It translates UML class diagrams and OCL constraints into Z3 formulas and performs bounded equivalence checking between LLM generated and reference OCL ASTs.
+    (6) Z3_verification.py: Implements the Layer 3 formal verification. It translates UML class diagrams and OCL constraints into Z3 formulas and performs bounded equivalence checking between LLM generated and reference OCL ASTs.
 
-(7) benchmark.json: The evaluation dataset comprising 32 UML models with 137 natural language requirements and their corresponding reference OCL constraints.
+    (7) benchmark.json: The evaluation dataset comprising 32 UML models with 137 natural language requirements and their corresponding reference OCL constraints.
 
-(8) benchmark_consistency_check.py: A verification script that uses the Z3 encoder to verify the structural consistency and satisfiability of the reference OCL constraints within the provided benchmark UML models.
+    (8) benchmark_consistency_check.py: A verification script that uses the Z3 encoder to verify the structural consistency and satisfiability of the reference OCL constraints within the provided benchmark UML models.
 
-(9) benchmark_consistency_report.json: The output artifact from the consistency checker, documenting the satisfiability status and witness states for each benchmark case.
+    (9) benchmark_consistency_report.json: The output artifact from the consistency checker, documenting the satisfiability status and witness states for each benchmark case.
 
 3. Source information of benchmark cases:
 
-(1) The following cases are adapted from established industrial benchmarks and academic educational models within the Model-Driven Engineering community, designed to evaluate constraint synthesis under foundational and intermediate structural complexity:
+    (1) The following cases are adapted from established industrial benchmarks and academic educational models within the Model-Driven Engineering community, designed to evaluate constraint synthesis under foundational and intermediate structural complexity:
 
     Royal & Loyal (case_06): Adapted from the industrial benchmark model originally introduced by Warmer and Kleppe. The constraints evaluate basic navigation, attribute domain restrictions, and conditional logic over associations.
 
@@ -36,7 +36,7 @@ Abstract: Authoring OCL constraints manually in Model-Driven Engineering is erro
 
     Standard Abstract Data Types and Domain Models (case_02, case_03, case_05, case_07, case_08, case_10, case_11, case_12, case_14, case_15): Adapted from canonical abstract data types and domain-specific educational examples. These cases test basic arithmetic operators, null-safe navigation for optional associations, collection intersection operations, multi-variable iterators for geometric calculations, and uniqueness constraints for problem domains like Sudoku and cinema seating.
 
-(2) The following cases are manually designed for complex, domain-specific business scenarios. These scenarios are intended to evaluate constraint synthesis under realistic operational logic and to cover diverse language constructs within the decidable OCL subset:
+    (2) The following cases are manually designed for complex, domain-specific business scenarios. These scenarios are intended to evaluate constraint synthesis under realistic operational logic and to cover diverse language constructs within the decidable OCL subset:
 
     Smart Climate Control System (case_16): Tests cross-object property navigation, absolute value operations, and complex logical implications.
 
