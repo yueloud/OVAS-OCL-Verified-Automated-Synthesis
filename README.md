@@ -24,7 +24,7 @@
 
 3. Source information of benchmark cases:
 
-    (1) The following cases are adapted from established industrial benchmarks and academic educational models within the Model-Driven Engineering community, designed to evaluate constraint synthesis under foundational and intermediate structural complexity:
+    (1) The following cases are adapted from established industrial benchmarks and academic educational models within the Model-Driven Engineering community. These cases are modified to conform to the decidable OCL subset defined for our work, thereby providing a rigorous testbed to evaluate the constraint synthesis capabilities of LLMs under foundational and intermediate structural complexities.
 
     Royal & Loyal (case_06): Adapted from the industrial benchmark model originally introduced by Warmer and Kleppe. The constraints evaluate basic navigation, attribute domain restrictions, and conditional logic over associations.
 
